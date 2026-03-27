@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>女巫冒险 - 网格移动版</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a0a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Courier New', monospace;
+      color: #e0d0f0;
+      touch-action: none;
+    }
+    #gameContainer {
+      position: relative;
+      border: 4px solid #4a2c6a;
+      border-radius: 8px;
+      box-shadow: 0 0 30px rgba(138, 43, 226, 0.3);
+      overflow: hidden;
+    }
+    #gameCanvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      width: 800px;
+      max-width: 100vw;
+      height: 600px;
+      max-height: 80vh;
+      background: #2d1b4e;
+    }
+    #uiOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    #uiOverlay > * { pointer-events: auto; }
+    .hud {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 8px;
+      background: rgba(0,0,0,0.5);
+      border-radius: 4px;
+      z-index: 50;
+      opacity: 0.5;
+    }
+    #timer { font-size: 18px; color: #ffd700; }
+    #hint { font-size: 12px; color: #b0a0c0; margin-top: 4px; }
+    #touchControls {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      display: none;
+      justify-content: center;
+      gap: 20px;
+      padding: 10px;
+      z-index: 50;
+    }
+    @media (max-width: 900px) { #touchControls { display: flex; flex-wrap: wrap; } }
+    .touchBtn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(138, 43, 226, 0.6);
+      border: 2px solid #fff;
+      color: #fff;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .touchBtn:active { background: rgba(200, 100, 255, 0.9); }
+    .touchBtn.run { background: rgba(255, 215, 0, 0.8); }
+    #modal {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      flex-direction: column;
+      padding: 20px;
+    }
+    #modal.show { display: flex; }
+    .modalContent {
+      background: linear-gradient(180deg, #2d1b4e 0%, #1a0a2e 100%);
+      border: 3px solid #6b4a8a;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 90%;
+      max-height: 90%;
+      overflow-y: auto;
+      text-align: center;
+    }
+    .modalContent h2 { margin-bottom: 16px; color: #ffd700; }
+    .modalContent p { margin: 8px 0; line-height: 1.6; }
+    
+    /* ===== 炼药界面样式 ===== */
+    #brewUI {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(26, 10, 46, 0.98);
+      z-index: 2000;
+      overflow-y: auto;
+    }
+    #brewUI.show { display: block; }
+    .brewHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px 20px;
+      background: rgba(0,0,0,0.5);
+      border-bottom: 2px solid #6b4a8a;
+      position: sticky;
+      top: 0;
+      z-index: 2100;
+    }
+    .brewContent {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 20px;
+      gap: 20px;
+      min-height: calc(100% - 80px);
+    }
+    .brewPanel {
+      background: rgba(45, 27, 78, 0.95);
+      border: 2px solid #6b4a8a;
+      border-radius: 12px;
+      padding: 16px;
+      min-width: 250px;
+      flex: 1 1 300px;
+      max-width: 350px;
+      margin: 10px 0;
+    }
+    .brewMat {
+      cursor: pointer;
+      padding: 10px 15px;
+      margin: 6px;
+      border: 2px solid #6b4a8a;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(107, 74, 138, 0.2);
+      transition: 0.2s;
+    }
+    .brewMat:hover {
+      background: rgba(107, 74, 138, 0.5);
+      transform: scale(1.05);
+    }
+    #cauldronSlots > div {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+    .brewSlot {
+      width: 60px;
+      height: 60px;
+      border: 2px dashed #6b4a8a;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      background: rgba(0,0,0,0.3);
+      transition: 0.2s;
+    }
+    .brewSlot.filled {
+      border-style: solid;
+      border-color: #ffd700;
+      background: rgba(107, 74, 138, 0.3);
+    }
+    .brewSlot.filled:hover {
+      background: rgba(255, 215, 0, 0.2);
+      cursor: pointer;
+    }
+    #clearCauldron {
+      margin: 10px auto;
+      padding: 8px 16px;
+      background: #4a2c6a;
+      color: #fff;
+      border: 1px solid #6b4a8a;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      display: block;
+    }
+    #clearCauldron:hover { background: #6b4a8a; }
+    #startBrewBtn {
+      padding: 12px 24px;
+      font-size: 18px;
+      background: #6b4a8a;
+      color: #ffd700;
+      border: 2px solid #ffd700;
+      border-radius: 10px;
+      cursor: pointer;
+      margin: 15px auto;
+      display: block;
+      width: fit-content;
+    }
+    #startBrewBtn:hover {
+      background: #8b6aaa;
+      transform: scale(1.02);
+    }
+    .brewedList {
+      margin-top: 15px;
+      padding: 12px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      border: 1px solid #6b4a8a;
+    }
+    #brewedList {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    #brewedList span {
+      padding: 4px 12px;
+      background: #4a2c6a;
+      border-radius: 20px;
+      font-size: 14px;
+      color: #ffd700;
+    }
+    #recipeBook {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .recipeItem {
+      padding: 10px;
+      margin: 8px 0;
+      border: 1px solid #6b4a8a;
+      border-radius: 8px;
+      background: rgba(107, 74, 138, 0.1);
+    }
+    .recipeItem strong { color: #ffd700; font-size: 16px; }
+    #returnExploreBtn, #skipBrewTimeBtn {
+      padding: 8px 16px;
+      background: #4a2c6a;
+      color: #e0d0f0;
+      border: 2px solid #6b4a8a;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    #returnExploreBtn:hover, #skipBrewTimeBtn:hover { background: #6b4a8a; }
+    #openBrewBtn {
+      padding: 6px 12px;
+      font-size: 14px;
+      background: #6b4a8a;
+      color: #ffd700;
+      border: 2px solid #ffd700;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #openBrewBtn:hover { background: #8b6aaa; }
+    #triggerEndBtn {
+      padding: 6px 10px;
+      font-size: 12px;
+      background: #4a2c6a;
+      color: #ffb080;
+      border: 1px solid #8b6a4a;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #triggerEndBtn:hover { background: #6b4a8a; }
+    
+    /* ===== 开始界面 ===== */
+    #startScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('https://i.ibb.co/R42pJjQ5/Start-BG.jpg');      background-size: cover;
+      background-position: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+      color: #e0d0f0;
+      text-align: center;
+    }
+    #startScreen.hidden { display: none; }
+    .startTitle {
+      font-size: 64px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 30px #8a6d9b, 0 0 60px #4a2c6a;
+      color: #ffd700;
+      animation: titleGlow 3s ease-in-out infinite;
+    }
+    .startButtons {
+      display: flex;
+      gap: 30px;
+      margin: 40px 0;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .startButton {
+      padding: 20px 40px;
+      font-size: 28px;
+      background: rgba(107, 74, 138, 0.8);
+      color: #ffd700;
+      border: 3px solid #ffd700;
+      border-radius: 60px;
+      cursor: pointer;
+      transition: 0.3s;
+      min-width: 250px;
+      backdrop-filter: blur(5px);
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+    }
+    .startButton:hover {
+      background: #8b6aaa;
+      transform: scale(1.1) translateY(-5px);
+      box-shadow: 0 10px 40px #ffd700;
+    }
+    .achievementButton {
+      padding: 15px 30px;
+      font-size: 22px;
+      background: rgba(74, 44, 106, 0.8);
+      color: #b0a0c0;
+      border: 2px solid #6b4a8a;
+      border-radius: 40px;
+      cursor: pointer;
+      transition: 0.3s;
+      backdrop-filter: blur(5px);
+    }
+    .achievementButton:hover {
+      background: #6b4a8a;
+      color: #ffd700;
+      border-color: #ffd700;
+    }
+    .instructions {
+      margin-top: 60px;
+      font-size: 20px;
+      color: #e0d0f0;
+      background: rgba(0,0,0,0.5);
+      padding: 20px 40px;
+      border-radius: 40px;
+      backdrop-filter: blur(5px);
+      border: 1px solid #6b4a8a;
+    }
+    @keyframes titleGlow {
+      0%, 100% { text-shadow: 0 0 30px #8a6d9b, 0 0 60px #4a2c6a; }
+      50% { text-shadow: 0 0 50px #b38fcc, 0 0 90px #8a6d9b; }
+    }
+    
+    /* 成就界面样式 */
+    #achievementScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(26, 10, 46, 0.95);
+      backdrop-filter: blur(10px);
+      z-index: 3500;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 40px;
+      overflow-y: auto;
+    }
+    #achievementScreen.show { display: flex; }
+    .achievementHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 800px;
+      margin-bottom: 40px;
+    }
+    .achievementTitle { font-size: 48px; color: #ffd700; }
+    .closeButton {
+      padding: 10px 20px;
+      font-size: 20px;
+      background: #4a2c6a;
+      color: #fff;
+      border: 2px solid #6b4a8a;
+      border-radius: 30px;
+      cursor: pointer;
+    }
+    .closeButton:hover {
+      background: #6b4a8a;
+      border-color: #ffd700;
+    }
+    .achievementGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      width: 100%;
+      max-width: 1000px;
+    }
+    .achievementCard {
+      background: rgba(45, 27, 78, 0.8);
+      border: 2px solid #6b4a8a;
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      transition: 0.3s;
+    }
+    .achievementCard.unlocked {
+      border-color: #ffd700;
+      background: rgba(107, 74, 138, 0.3);
+    }
+    .achievementCard .icon { font-size: 48px; margin-bottom: 10px; }
+    .achievementCard .name {
+      font-size: 20px;
+      color: #ffd700;
+      margin-bottom: 8px;
+    }
+    .achievementCard .desc {
+      font-size: 14px;
+      color: #b0a0c0;
+      margin-bottom: 8px;
+    }
+    .achievementCard .status { font-size: 12px; color: #6b4a8a; }
+    .achievementCard.unlocked .status { color: #ffd700; }
+    
+    @media (max-width: 600px) {
+      .brewContent { padding: 10px; }
+      .brewPanel { min-width: 100%; margin: 5px 0; }
+      .brewMat { padding: 8px 12px; font-size: 14px; }
+      .brewSlot { width: 50px; height: 50px; font-size: 24px; }
+      #startBrewBtn { padding: 10px 20px; font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer" oncontextmenu="return false;">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="uiOverlay">
+      <div class="hud">
+        <div>
+          <div id="timer">⏱ 05:00</div>
+          <div id="hint">WASD移动 Shift跑步 E互动 I背包 空格炼药</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span id="mapLabel">城堡一层</span>
+          <button id="openBrewBtn" type="button">🫕 炼药</button>
+          <button id="triggerEndBtn" type="button">⏭ 结束</button>
+          <button id="musicToggleBtn" type="button">🎵 开</button>
+        </div>
+      </div>
+      <div id="touchControls">
+        <button class="touchBtn" data-key="KeyW">▲</button>
+        <button class="touchBtn" data-key="KeyS">▼</button>
+        <button class="touchBtn" data-key="KeyA">◀</button>
+        <button class="touchBtn" data-key="KeyD">▶</button>
+        <button class="touchBtn" data-key="KeyE">E</button>
+        <button class="touchBtn" data-key="KeyI">I</button>
+        <button class="touchBtn" id="touchBrewBtn" title="炼药">🫕</button>
+        <button class="touchBtn" id="touchRunBtn" title="跑步">🏃</button>
+      </div>
+    </div>
+    <div id="modal">
+      <div class="modalContent" id="modalContent"></div>
+    </div>
+    <div id="brewUI">
+      <!-- 内容会在JavaScript中动态生成 -->
+    </div>
+    <!-- 开始界面 -->
+    <div id="startScreen">
+      <h1 class="startTitle">🧙‍♀️ 女巫冒险</h1>
+      <h1 class="startTitle" style="font-size: 36px; margin-top: -20px;">网格移动版</h1>
+      <div class="startButtons">
+        <button class="startButton" id="startGameBtn">开始游戏</button>
+        <button class="achievementButton" id="viewAchievementsBtn">🏆 成就</button>
+      </div>
+      <div class="instructions">
+        <p>WASD 移动 | Shift 跑步 | E 互动 | I 背包 | 空格 炼药</p>
+        <p>每步移动一格，收集材料，炼制魔药</p>
+      </div>
+    </div>
+    <!-- 成就界面 -->
+    <div id="achievementScreen">
+      <div class="achievementHeader">
+        <h2 class="achievementTitle">🏆 已解锁成就</h2>
+        <button class="closeButton" id="closeAchievementsBtn">关闭</button>
+      </div>
+      <div class="achievementGrid" id="achievementGrid">
+        <!-- 成就列表会通过JavaScript动态生成 -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    // ============ 游戏配置 ============
+    const TILE_SIZE = 48;           // 网格大小
+    const MAP_WIDTH = 16;            // 地图宽度（格数）
+    const MAP_HEIGHT = 12;           // 地图高度（格数）
+    const MOVE_SPEED = 150;          // 移动速度（像素/秒）
+    const RUN_SPEED = 250;           // 跑步速度（像素/秒）
+    const WALK_ANIMATION_FPS = 8;      // 普通行走：8帧/秒
+    const RUN_ANIMATION_FPS = 14;       // 跑步：14帧/秒
+    
+    // ============ 可替换的Base64素材 ============
+    const START_BG_BASE64 = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MDAiIGhlaWdodD0iNjAwIiB2aWV3Qm94PSIwIDAgODAwIDYwMCI+PHJlY3Qgd2lkdGg9IjgwMCIgaGVpZ2h0PSI2MDAiIGZpbGw9IiMxYTBhMmUiLz48Y2lyY2xlIGN4PSI0MDAiIGN5PSIzMDAiIHI9IjE1MCIgZmlsbD0icmdiYSgxMzgsNDMsMjI2LDAuMykiLz48cG9seWdvbiBwb2ludHM9IjQwMCwxMDAgNDUwLDIwMCAzNTAsMjAwIiBmaWxsPSIjNmI0YThhIi8+PC9zdmc+';
+    
+        // ============ 角色动画素材 ============
+    const witchImages = {
+        idle: { south: null, north: null, west: null, east: null },
+        walk: { south: [], north: [], west: [], east: [] }
+    };
+    
+    const idleUrls = {
+        west: 'https://i.ibb.co/jk5XZttQ/west.png',
+        south: 'https://i.ibb.co/vCM62Cx8/south.png',
+        north: 'https://i.ibb.co/2741fXBv/north.png',
+        east: 'https://i.ibb.co/35rjz0WV/east.png'
+    };
+    
+    const walkUrls = {
+        south: [
+            'https://i.ibb.co/1Jpvhjdk/frame-000.png',
+            'https://i.ibb.co/1Gdn2dhN/frame-001.png',
+            'https://i.ibb.co/cS8xySGm/frame-002.png',
+            'https://i.ibb.co/rGqPYJJs/frame-003.png',
+            'https://i.ibb.co/MkvLWsxR/frame-004.png',
+            'https://i.ibb.co/GvgYF0ng/frame-005.png'
+        ],
+        north: [
+            'https://i.ibb.co/rRGhKxNN/frame-000.png',
+            'https://i.ibb.co/xttB1PSH/frame-001.png',
+            'https://i.ibb.co/zWKhDRvD/frame-002.png',
+            'https://i.ibb.co/Kx3gCWYT/frame-003.png',
+            'https://i.ibb.co/NM89bSG/frame-004.png',
+            'https://i.ibb.co/6Rntr4Ds/frame-005.png'
+        ],
+        west: [
+            'https://i.ibb.co/8n8rLBSR/frame-000.png',
+            'https://i.ibb.co/93rbPF6W/frame-001.png',
+            'https://i.ibb.co/gZfpfmQ3/frame-002.png',
+            'https://i.ibb.co/wFSDZkCT/frame-003.png',
+            'https://i.ibb.co/0ywtFXPF/frame-004.png',
+            'https://i.ibb.co/Kp9wr0Qr/frame-005.png',
+        ],
+        east: [
+            'https://i.ibb.co/6JJTMBBP/frame-000.png',
+            'https://i.ibb.co/HTfFtKrp/frame-001.png',
+            'https://i.ibb.co/5QNKXdp/frame-002.png',
+            'https://i.ibb.co/7tcCt2b4/frame-003.png',
+            'https://i.ibb.co/Fqqh2hs2/frame-004.png',
+            'https://i.ibb.co/yFGy2PH9/frame-005.png'
+        ]
+    };
+    
+    let imagesLoaded = 0;
+    const totalImages = 28;
+    
+    function loadWitchImages(callback) {
+        for (const dir of ['south', 'north', 'west', 'east']) {
+            const img = new Image();
+            img.onload = () => { imagesLoaded++; if (imagesLoaded === totalImages && callback) callback(); };
+            img.src = idleUrls[dir];
+            witchImages.idle[dir] = img;
+        }
+        for (const dir of ['south', 'north', 'west', 'east']) {
+            for (let i = 0; i < 6; i++) {
+                const img = new Image();
+                img.onload = () => { imagesLoaded++; if (imagesLoaded === totalImages && callback) callback(); };
+                img.src = walkUrls[dir][i];
+                witchImages.walk[dir][i] = img;
+            }
+        }
+    }
+    
+    const MOONLIGHT_GRASS_IMG = 'https://i.ibb.co/3mc7h7z9/pixellab-pixel-art-glowing-moon-grass-1774545818615.png';
+    const FLAME_FLOWER_IMG = 'https://i.ibb.co/cXCVS1xs/pixellab-pixel-art-flame-flower-blazi-1774546029683.png';
+    const CRYSTAL_DUST_IMG = 'https://i.ibb.co/SXP46LhS/pixellab-pixel-art-crystal-dust-magic-1774546159419.png';
+
+    const CAT_IMG_BASE64 = 'https://i.ibb.co/x8MtLm6N/south.png';
+    
+
+
+    const FLOOR1_BG_BASE64 = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MDAiIGhlaWdodD0iNjAwIiB2aWV3Qm94PSIwIDAgODAwIDYwMCI+PHJlY3Qgd2lkdGg9IjgwMCIgaGVpZ2h0PSI2MDAiIGZpbGw9IiMyZDFiNGUiLz48cGF0aCBkPSJNMCAwaDgwdjYwMEgweiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjM2QyYjVlIiBzdHJva2Utd2lkdGg9IjEiLz48L3N2Zz4=';
+    
+    // ============ 背景音乐 (Base64) ============
+    const MENU_BGM_BASE64 = 'data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVQAAACAgICAf39/f39/f3+AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAf39/f38=';
+    const GAME_BGM_BASE64 = 'data:audio/wav;base64,UklGRmQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVQAAACAgICAf39/f39/f3+AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAf39/f38=';
+    
+    // ============ 材料定义 ============
+    const MATERIALS = {
+      moonlight_grass: { name: '月光草', emoji: '🌿', img: 'https://i.ibb.co/3mc7h7z9/pixellab-pixel-art-glowing-moon-grass-1774545818615.png'},
+      flame_flower: { name: '火焰花', emoji: '🔥', img: 'https://i.ibb.co/cXCVS1xs/pixellab-pixel-art-flame-flower-blazi-1774546029683.png'},
+      crystal_dust: { name: '水晶尘', emoji: '✨', img: 'https://i.ibb.co/SXP46LhS/pixellab-pixel-art-crystal-dust-magic-1774546159419.png' },
+      shadow_mushroom: { name: '暗影菇', emoji: '🍄', img: 'https://i.ibb.co/8LGNrm9t/pixellab-pixel-art-shadow-mushroom-da-1774546215452.png' },
+      dragon_scale: { name: '龙鳞', emoji: '🐉', img: 'https://i.ibb.co/N6SxsV9c/pixellab-pixel-art-dragon-scale-iride-1774546271801.png' },
+      cat_food: { name: '猫粮', emoji: '🥣', img: 'https://i.ibb.co/zVBR7vHx/pixellab-pixel-art-wooden-bowl-with-dr-1774546337165.png' }
+    };
+
+    // ============ 药水配方 ============
+    const RECIPES = [
+      { id: 'heal', name: '治疗药水', materials: ['moonlight_grass', 'flame_flower'], result: 'heal' },
+      { id: 'mana', name: '魔力药水', materials: ['crystal_dust', 'moonlight_grass'], result: 'mana' },
+      { id: 'strength', name: '力量药水', materials: ['dragon_scale', 'flame_flower'], result: 'strength' },
+      { id: 'hidden', name: '暗影龙息', materials: ['shadow_mushroom', 'dragon_scale'], result: 'hidden' }
+    ];
+
+    // ============ 成就定义 ============
+    const ACHIEVEMENTS = [
+      { id: 'starter', name: '初出茅庐', desc: '开始第一次冒险', icon: '🌟' },
+      { id: 'collector', name: '材料大师', desc: '收集全部5种材料', icon: '📦' },
+      { id: 'brewer', name: '炼药师', desc: '成功炼制3种药水', icon: '🧪' },
+      { id: 'explorer', name: '探险家', desc: '探索全部4个地图', icon: '🗺️' },
+      { id: 'keymaster', name: '钥匙守护者', desc: '找到花园钥匙', icon: '🔑' },
+      { id: 'catLover', name: '猫咪朋友', desc: '喂食猫咪', icon: '🐱' },
+      { id: 'hiddenEnding', name: '暗影之主', desc: '达成隐藏结局', icon: '🌑' },
+      { id: 'masterWitch', name: '传奇女巫', desc: '解锁全部成就', icon: '👑' }
+    ];
+
+    // ============ 音效系统 ============
+    let audioCtx = null;
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    function playTone(freq, duration, type) {
+      if (!audioCtx) initAudio();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.value = freq;
+        osc.type = type || 'sine';
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+    
+    function soundPickup() { playTone(523, 0.1, 'square'); }
+    function soundDoor() { playTone(392, 0.15, 'square'); playTone(523, 0.15, 'square'); }
+    function soundSuccess() { playTone(523, 0.1); playTone(659, 0.1); playTone(784, 0.2); }
+    function soundFail() { playTone(200, 0.2, 'sawtooth'); }
+
+    // ============ 背景音乐系统 ============
+    let bgmMenuAudio = null;
+    let bgmGameAudio = null;
+    let bgmEnabled = true;
+
+    function initBGM() {
+      try {
+        bgmMenuAudio = new Audio(MENU_BGM_BASE64);
+        bgmMenuAudio.loop = true;
+        bgmMenuAudio.volume = 0.3;
+        
+        bgmGameAudio = new Audio(GAME_BGM_BASE64);
+        bgmGameAudio.loop = true;
+        bgmGameAudio.volume = 0.4;
+        
+        bgmMenuAudio.load();
+        bgmGameAudio.load();
+      } catch (e) {
+        console.log('背景音乐初始化失败', e);
+      }
+    }
+
+    function playMenuBGM() {
+      if (!bgmEnabled) return;
+      if (bgmGameAudio) bgmGameAudio.pause();
+      if (bgmMenuAudio) {
+        bgmMenuAudio.play().catch(() => {});
+      }
+    }
+
+    function playGameBGM() {
+      if (!bgmEnabled) return;
+      if (bgmMenuAudio) bgmMenuAudio.pause();
+      if (bgmGameAudio) {
+        bgmGameAudio.play().catch(() => {});
+      }
+    }
+
+    function pauseAllBGM() {
+      if (bgmMenuAudio) bgmMenuAudio.pause();
+      if (bgmGameAudio) bgmGameAudio.pause();
+    }
+
+    function toggleBGM() {
+      bgmEnabled = !bgmEnabled;
+      const musicBtn = document.getElementById('musicToggleBtn');
+      if (bgmEnabled) {
+        if (document.getElementById('startScreen').classList.contains('hidden')) {
+          playGameBGM();
+        } else {
+          playMenuBGM();
+        }
+        if (musicBtn) musicBtn.textContent = '🎵 开';
+      } else {
+        pauseAllBGM();
+        if (musicBtn) musicBtn.textContent = '🔇 关';
+      }
+    }
+
+    initBGM();
+
+    // ============ 动画状态 ============
+    let currentAnimation = {
+        direction: 'south',
+        frameIndex: 0,
+        lastFrameTime: 0,
+        isWalking: false,
+        isRunning: false
+    };
+    
+    function getCurrentWitchImage() {
+        if (currentAnimation.isWalking) {
+            const frames = witchImages.walk[currentAnimation.direction];
+            if (frames && frames[currentAnimation.frameIndex]) {
+                return frames[currentAnimation.frameIndex];
+            }
+        }
+        return witchImages.idle[currentAnimation.direction];
+    }
+    
+    function updateAnimationFrame(now, isMoving, isRunning, direction) {
+        if (direction) currentAnimation.direction = direction;
+        currentAnimation.isWalking = isMoving;
+        currentAnimation.isRunning = isRunning;
+        
+        if (!isMoving) {
+            currentAnimation.frameIndex = 0;
+            return;
+        }
+        
+        const fps = isRunning ? RUN_ANIMATION_FPS : WALK_ANIMATION_FPS;
+        const frameDuration = 1000 / fps;
+        
+        if (now - currentAnimation.lastFrameTime >= frameDuration) {
+            currentAnimation.frameIndex = (currentAnimation.frameIndex + 1) % 6;
+            currentAnimation.lastFrameTime = now;
+        }
+    }
+
+
+    // ============ 游戏状态 ============
+    const state = {
+      currentMap: 'floor1',
+      player: { 
+        gridX: 10,           // 目标网格坐标
+        gridY: 8,
+        pixelX: 10 * TILE_SIZE,  // 实际像素坐标
+        pixelY: 8 * TILE_SIZE,
+        moving: false,
+        moveDir: { x: 0, y: 0 },
+        moveStartX: 0,
+        moveStartY: 0,
+        moveTargetX: 0,
+        moveTargetY: 0,
+        moveProgress: 0,
+        lastMoveDirection: 'south'  // 记录上次移动方向
+      },
+      keys: { w: false, a: false, s: false, d: false, shift: false },
+      touchRun: false,
+      inventory: [],
+      maxInventory: 10,
+      recipesUnlocked: [],
+      hasGardenKey: false,
+      totalTime: 5 * 60,
+      elapsed: 0,
+      phase: 'explore',
+      brewMode: null,
+      brewTimeLeft: 60,
+      brewTimerId: null,
+      brewedPotions: [],
+      cauldron: [],
+      pickedItems: {},
+      interactableFirstDone: {},
+      interactableCollected: {},
+      catAsleep: false,
+      catRewardGiven: false,
+      achievements: {
+        starter: false, collector: false, brewer: false, explorer: false,
+        keymaster: false, catLover: false, hiddenEnding: false, masterWitch: false
+      },
+      mapsVisited: ['floor1']
+    };
+
+    // ============ 地图定义 ============
+    const MAPS = {
+      floor1: {
+        name: '城堡一层',
+        spawn: { x: 10, y: 8 },
+        background: 'https://i.ibb.co/S4jst3Jy/Tower-1.jpg',
+        obstacles: [{ x: 9, y: 5, w: 4, h: 1 },{ x: 12, y: 6, w: 3, h: 1 },{ x: 14, y: 7, w: 3, h: 1 }, 
+            { x: 5, y: 5, w: 3, h: 1 }, { x: 2, y: 6, w: 5, h: 1 }, { x: 1, y: 7, w: 1, h: 1 }, 
+            { x: 0, y: 8, w: 1, h: 4 },{ x: 1, y: 11, w: 6, h: 1 }, { x: 10, y: 11, w: 6, h: 1 }
+        ],
+        interactables: [
+          { id: 'mural_left', x: 2, y: 7, h: 2, type: 'dialogue', text: '你走近壁画，看见淡淡的紫色魔力从女人身上倾泻，你听见她的私语。', recipeId: 'heal' },
+          { id: 'chest', x: 5, y: 7, h: 1, type: 'dialogue', text: '你在宝箱里发现了一个泛黄的卷轴', recipeId: 'heal'},
+          { id: 'mural_right', x: 2, y: 2, type: 'dialogue', text: '你走近壁画，蓝色的火焰跃动于男人指尖，与其对上视线的一秒你若有所感，脊背发凉，快速移开了视线。'}
+        ],
+        portals: [
+          { x: 8, y: 5, to: 'floor2', toSpawn: { x: 8, y: 10 }, needKey: false, label: '楼梯↑' },
+          { x: 8, y: 11, to: 'garden', toSpawn: { x: 14, y: 5 }, needKey: true, label: '花园门' }
+        ],
+        items: [
+          
+        ]
+      },
+      floor2: {
+        name: '城堡二层',
+        spawn: { x: 11, y: 4 },
+        background: 'https://i.ibb.co/rGZVzVJy/Tower-2.jpg',
+        obstacles: [{ x: 4, y: 11, w: 3, h: 1 }, { x: 9, y: 11, w: 4, h: 1 }, { x: 12, y: 10, w: 4, h: 1 },
+          { x: 15, y: 7, w: 1, h: 3 }, { x: 13, y: 6, w: 2, h: 1 }, { x: 9, y: 5, w: 5, h: 1 },
+          { x: 4, y: 5, w: 4, h: 1 }, { x: 2, y: 6, w: 3, h: 1 }, { x: 2, y: 7, w: 1, h: 1 },
+          { x: 1, y: 8, w: 1, h: 3 }, { x: 2, y: 10, w: 3, h: 1 }, { x: 7, y: 7, w: 3, h: 2 }
+         
+        ],
+        interactables: [
+          { id: 'magic_book', x: 10, y: 6, w: 2, type: 'recipe', recipeId: 'mana' },
+
+          { id: 'wardrobe', x: 15, y: 6, type: 'dialogue', text: '衣柜里只有旧袍子。' },
+          { id: 'cat_shelf', x: 5, y: 6, type: 'firstThenGive', text: '书架上堆满旧书，落满灰尘。', giveItem: 'cat_food', giveLabel: '猫粮' }
+        ],
+        portals: [
+          { x: 8, y: 11, to: 'floor1', toSpawn: { x: 8, y: 6 }, needKey: false, label: '楼梯↓' },
+          { x: 8, y: 5, to: 'floor3', toSpawn: { x: 8, y: 10 }, needKey: false, label: '塔楼' }
+        ],
+        items: [
+          { id: 'flame_flower_1', x: 7, y: 12, materialId: 'flame_flower' }
+        ]
+      },
+      floor3: {
+        name: '城堡三层',
+        spawn: { x: 8, y: 10 },
+        background: 'https://i.ibb.co/zV2YQ667/Tower-3.jpg',
+        obstacles: [{ x: 1, y: 6, w: 6, h: 1 }, { x: 7, y: 5, w: 5, h: 1 }, { x: 12, y: 6, w: 2, h: 1 }, 
+              { x: 14, y: 8, w: 2, h: 1 }, { x: 9, y: 11, w: 7, h: 1 }, { x: 0, y: 11, w: 7, h: 1 }, 
+              { x: 2, y: 9, w: 4, h: 2 }, { x: 2, y: 8, w: 1, h: 1 }, { x: 1, y: 7, w: 1, h: 1 }, 
+              { x: 11, y: 10, w: 3, h: 1 }, { x: 13, y: 7, w: 1, h: 1 }
+        
+        ],
+        interactables: [
+          { id: 'cat', x: 8, y: 8, type: 'cat', img: CAT_IMG_BASE64 },
+          { id: 'magic_book', x: 12, y: 9, type: 'recipe', recipeId: 'mana' },
+          { id: 'telescope', x: 5, y: 7, type: 'dialogue', text: '望远镜里只有星星。' },
+          { id: 'cabinet', x: 9, y: 6, type: 'dialogue', text: '你在柜子里发现了点用剩的草药。' , giveMaterial: 'moonlight_grass'},
+          { id: ' get_crystal_dust', x: 4, y: 8, type:'remote_collect', text:'你拿走了桌子上的水晶尘<br>',targetItemId: 'display_crystal_dust', targetMaterial: 'crystal_dust'}
+        ],
+        portals: [
+          { x: 8, y: 11, to: 'floor2', toSpawn: { x: 8, y: 6 }, needKey: false, label: '楼梯↓' }
+        ],
+        items: [
+          { id: 'garden_key', x: 8, y: 9, materialId: 'garden_key', isKey: true },
+          { id: 'display_crystal_dust', x: 4, y: 9, materialId: 'crystal_dust' }
+        ]
+      },
+      garden: {
+        name: '花园',
+        spawn: { x: 14, y: 5 },
+        background: 'https://i.ibb.co/Q7V3yxf6/Garden.jpg',
+        obstacles: [{ x: 12, y: 4, w: 3, h: 1 },{ x: 0, y: 4, w: 1, h: 8 },{ x: 1, y: 4, w: 1, h:  3},
+            { x: 2, y: 5, w: 1, h: 1 },{ x: 1, y: 4, w: 3, h: 1 },{ x: 4, y: 3, w: 2, h: 1 },
+            { x: 6, y: 2, w: 5, h: 1 },{ x: 11, y: 3, w: 1, h: 1 },{ x: 4, y: 8, w: 5, h: 1 },{ x: 9, y: 5, w: 2, h: 1 },
+            { x: 11, y: 8, w: 4, h: 3 },{ x: 13, y: 6, w: 3, h: 1 },{ x: 9, y: 3, w: 1, h: 1 }
+         
+        ],
+        interactables: [
+          { id: 'fountain', x: 11, y: 11, type: 'dialogue', text: '喷泉闪烁着魔法光芒。' },
+          { id: 'magic_plant', x: 7, y: 6, type: 'firstThenCollect', text: '暗影菇与龙鳞…古老配方在记忆中苏醒。', recipeId: 'hidden', materialId: 'shadow_mushroom' },
+          { id: 'dragon_spot', x: 1, y: 7, type: 'firstThenCollect', text: '石缝中嵌着一片龙鳞，泛着微光。', materialId: 'dragon_scale' }
+        ],
+        portals: [
+          { x: 15, y: 5, to: 'floor1', toSpawn: { x: 8, y: 10 }, needKey: false, label: '返回' }
+        ],
+        items: [
+          { id: 'moonlight_grass_garden', x: 5, y: 10, materialId: 'moonlight_grass' }
+        ]
+      }
+    };
+
+    // ============ 碰撞检测 ============
+    function canMoveTo(tx, ty) {
+      const map = MAPS[state.currentMap];
+      
+      if (tx < 0 || tx >= MAP_WIDTH || ty < 0 || ty >= MAP_HEIGHT) return false;
+      
+      for (const obs of map.obstacles) {
+        if (tx >= obs.x && tx < obs.x + obs.w && ty >= obs.y && ty < obs.y + obs.h) {
+          return false;
+        }
+      }
+      
+      return true;
+    }
+
+    // ============ 平滑移动系统 ============
+    function startMove(dx, dy) {
+      if (state.player.moving) return false;
+      
+      const newGridX = state.player.gridX + dx;
+      const newGridY = state.player.gridY + dy;
+      
+      if (!canMoveTo(newGridX, newGridY)) return false;
+      // 记录移动方向
+      if (dy < 0) state.player.lastMoveDirection = 'north';
+      else if (dy > 0) state.player.lastMoveDirection = 'south';
+      else if (dx < 0) state.player.lastMoveDirection = 'west';
+      else if (dx > 0) state.player.lastMoveDirection = 'east';
+
+      state.player.moving = true;
+      state.player.moveDir = { x: dx, y: dy };
+      state.player.moveStartX = state.player.pixelX;
+      state.player.moveStartY = state.player.pixelY;
+      state.player.moveTargetX = newGridX * TILE_SIZE;
+      state.player.moveTargetY = newGridY * TILE_SIZE;
+      state.player.moveProgress = 0;
+      state.player.gridX = newGridX;
+      state.player.gridY = newGridY;
+      
+      return true;
+    }
+
+    function updateMovement(dt) {
+      if (!state.player.moving) return;
+      const isRunning = state.keys.shift || state.touchRun;
+      const speed = (state.keys.shift || state.touchRun) ? RUN_SPEED : MOVE_SPEED;
+      const moveDistance = (speed * dt) / 1000; // 转换为像素
+      const totalDistance = TILE_SIZE;
+      
+      state.player.moveProgress += moveDistance / totalDistance;
+      
+      if (state.player.moveProgress >= 1) {
+        // 移动完成
+        state.player.pixelX = state.player.moveTargetX;
+        state.player.pixelY = state.player.moveTargetY;
+        state.player.moving = false;
+        state.player.moveProgress = 0;
+        
+        // 移动完成后检查自动互动
+        checkAutoInteract();
+      } else {
+        // 插值移动
+        state.player.pixelX = state.player.moveStartX + 
+          (state.player.moveTargetX - state.player.moveStartX) * state.player.moveProgress;
+        state.player.pixelY = state.player.moveStartY + 
+          (state.player.moveTargetY - state.player.moveStartY) * state.player.moveProgress;
+      }
+    }
+
+    // 自动检查脚下是否有可互动物品
+    function checkAutoInteract() {
+      const map = MAPS[state.currentMap];
+      const px = state.player.gridX;
+      const py = state.player.gridY;
+      
+      // 检查物品（自动拾取）
+      for (const item of map.items || []) {
+        const key = state.currentMap + '_' + item.id;
+        if (!state.pickedItems[key] && item.x === px && item.y === py) {
+          state.pickedItems[key] = true;
+          if (item.isKey) {
+            state.hasGardenKey = true;
+            showDialogue('获得了花园钥匙！');
+            checkAchievements();
+          } else if (state.inventory.length < state.maxInventory) {
+            state.inventory.push(item.materialId);
+            showDialogue('获得：' + (MATERIALS[item.materialId]?.name || item.materialId));
+            soundPickup();
+            checkAchievements();
+          }
+          return;
+        }
+      }
+      
+      // 检查传送门（自动传送）a
+      for (const portal of map.portals || []) {
+        if (portal.x === px && portal.y === py) {
+          if (portal.needKey && !state.hasGardenKey) {
+            showDialogue('需要花园钥匙才能打开这道门！');
+            return;
+          }
+          switchMap(portal.to, portal.toSpawn);
+          soundDoor();
+          return;
+        }
+      }
+    }
+
+    // ============ 互动系统 ============
+    function tryInteract() {
+      if (state.player.moving) return;
+      
+      const map = MAPS[state.currentMap];
+      const px = state.player.gridX;
+      const py = state.player.gridY;
+      
+      for (const i of map.interactables || []) {
+        if (i.x === px && i.y === py) {
+          if (i.type === 'firstThenCollect' && state.interactableCollected[i.id]) continue;
+          
+          if (i.type === 'cat') {
+            handleCatInteraction(i);
+            return;
+          }
+          
+          if (i.type === 'firstThenGive') {
+            handleFirstThenGive(i);
+            return;
+          }
+          
+          if (i.type === 'firstThenCollect') {
+            handleFirstThenCollect(i);
+            return;
+          }
+          
+          if (i.type === 'dialogue') {
+            showDialogue(i.text);
+            if (i.recipeId && !state.recipesUnlocked.includes(i.recipeId)) {
+              state.recipesUnlocked.push(i.recipeId);
+              soundPickup();
+            }
+            // ===== 新增：获得材料 =====
+            if (i.giveMaterial && !state.pickedItems[i.materialId + '_' + i.id]) {
+              if (state.inventory.length < state.maxInventory) {
+                state.inventory.push(i.giveMaterial);
+                state.pickedItems[i.materialId + '_' + i.id] = true;
+                showDialogue('获得了：' + (MATERIALS[i.giveMaterial]?.name || i.giveMaterial));
+                soundPickup();
+                checkAchievements();
+              } else {
+                showDialogue('背包已满！');
+              }
+            }
+            return;
+          }
+          
+          if (i.type === 'recipe') {
+            if (!state.recipesUnlocked.includes(i.recipeId)) {
+              state.recipesUnlocked.push(i.recipeId);
+              soundPickup();
+              showDialogue('你获得了配方：' + (RECIPES.find(r => r.id === i.recipeId)?.name || ''));
+            } else {
+              showDialogue('已经读过这本魔法书了。');
+            }
+            return;
+          }
+
+          if (i.type === 'remote_collect') {
+            const targetId = i.targetItemId;
+            const targetMaterial = i.targetMaterial;
+            
+            const targetKey = state.currentMap + '_' + targetId;
+            if (!state.pickedItems[targetKey]) {
+              state.pickedItems[targetKey] = true;
+              if (state.inventory.length < state.maxInventory) {
+                state.inventory.push(targetMaterial);
+                showDialogue(i.text + ' 获得了：' + (MATERIALS[targetMaterial]?.name || targetMaterial));
+                soundPickup();
+                checkAchievements();
+              } else {
+                showDialogue('背包已满！');
+              }
+            } else {
+              showDialogue('这里已经没有东西了。');
+            }
+            return;
+          }
+        }
+      }
+    }
+
+    function handleCatInteraction(i) {
+      if (state.catRewardGiven) {
+        showDialogue(state.catAsleep ? '猫咪还在打盹。' : '猫咪对你喵了一声。');
+      } else if (state.catAsleep) {
+        if (state.inventory.length + 2 > state.maxInventory) {
+          showDialogue('背包空间不足，无法收取谢礼。');
+        } else {
+          state.inventory.push('moonlight_grass');
+          state.inventory.push('flame_flower');
+          state.catRewardGiven = true;
+          soundPickup();
+          showDialogue('猫咪醒来，留下了月光草和火焰花作为谢礼。');
+          checkAchievements();
+        }
+      } else if (state.inventory.indexOf('cat_food') !== -1) {
+        state.inventory.splice(state.inventory.indexOf('cat_food'), 1);
+        state.catAsleep = true;
+        showDialogue('你喂了猫咪，它满足地睡着了。');
+        checkAchievements();
+      } else {
+        showDialogue('喵~ 龙鳞与火焰花能炼出力量药水哦！');
+        if (!state.recipesUnlocked.includes('strength')) {
+          state.recipesUnlocked.push('strength');
+          soundPickup();
+        }
+      }
+    }
+
+    function handleFirstThenGive(i) {
+      const id = i.id;
+      if (!state.interactableFirstDone[id]) {
+        showDialogue(i.text);
+        state.interactableFirstDone[id] = true;
+      } else if (!state.interactableCollected[id]) {
+        if (state.inventory.length >= state.maxInventory) {
+          showDialogue('背包已满！');
+        } else {
+          state.inventory.push(i.giveItem);
+          state.interactableCollected[id] = true;
+          soundPickup();
+          showDialogue('获得了' + (i.giveLabel || i.giveItem) + '！');
+        }
+      } else {
+        showDialogue('已经没有东西了。');
+      }
+    }
+
+    function handleFirstThenCollect(i) {
+      const id = i.id;
+      if (!state.interactableFirstDone[id]) {
+        showDialogue(i.text);
+        if (i.recipeId && !state.recipesUnlocked.includes(i.recipeId)) {
+          state.recipesUnlocked.push(i.recipeId);
+          soundPickup();
+        }
+        state.interactableFirstDone[id] = true;
+      } else if (!state.interactableCollected[id]) {
+        if (state.inventory.length >= state.maxInventory) {
+          showDialogue('背包已满！');
+        } else {
+          state.inventory.push(i.materialId);
+          state.interactableCollected[id] = true;
+          soundPickup();
+          showDialogue('获得：' + (MATERIALS[i.materialId]?.name || i.materialId));
+          checkAchievements();
+        }
+      }
+    }
+
+    // ============ 地图切换 ============
+    function switchMap(toMap, toSpawn) {
+      state.currentMap = toMap;
+      state.player.gridX = toSpawn.x;
+      state.player.gridY = toSpawn.y;
+      state.player.pixelX = toSpawn.x * TILE_SIZE;
+      state.player.pixelY = toSpawn.y * TILE_SIZE;
+      state.player.moving = false;
+      document.getElementById('mapLabel').textContent = MAPS[toMap].name;
+      checkMapExplored();
+    }
+
+    // ============ UI系统 ============
+    function showDialogue(text) {
+      const modal = document.getElementById('modal');
+      const content = document.getElementById('modalContent');
+      content.innerHTML = '<p>' + text + '</p><button id="closeModalBtn" style="margin-top:12px; padding:8px 16px;">关闭</button>';
+      modal.classList.add('show');
+      document.getElementById('closeModalBtn').onclick = () => modal.classList.remove('show');
+    }
+    
+    function showInventory() {
+      var count = {};
+      state.inventory.forEach(id => count[id] = (count[id] || 0) + 1);
+      var html = '<p>背包 (' + state.inventory.length + '/' + state.maxInventory + ')</p><div style="display:flex; flex-wrap:wrap; gap:8px;">';
+      Object.keys(count).forEach(id => {
+        var mat = MATERIALS[id];
+        if (mat) {
+          html += `<div style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px; background:rgba(0,0,0,0.3); border-radius:8px; min-width:60px;">
+            <img src="${mat.img}" style="width:32px; height:32px; image-rendering:pixelated;">
+            <span style="font-size:12px; color:#ffd700;">x${count[id]}</span>
+          </div>`;
+        }
+      });
+
+      if (state.hasGardenKey) {
+        html += `<div style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px; background:rgba(0,0,0,0.3); border-radius:8px;">
+          <span style="font-size:28px;">🔑</span>
+          <span style="font-size:12px;">花园钥匙</span>
+        </div>`;
+      }
+      html += '</div>';
+      showDialogue(html);
+    }
+
+    // ============ 炼药系统 ============
+    function showBrewUI(isVoluntary) {
+      state.phase = 'brew';
+      state.brewMode = isVoluntary ? 'preview' : 'final';
+      state.brewTimeLeft = 60;
+      
+      const brewUI = document.getElementById('brewUI');
+      brewUI.innerHTML = `
+        <div class="brewHeader">
+          <div>
+            <span id="brewTimer">${isVoluntary ? '炼药练习' : '炼药时间: 60 秒'}</span>
+          </div>
+          <div>
+            <button id="returnExploreBtn" style="display:${isVoluntary ? 'inline-block' : 'none'};">返回探索</button>
+            <button id="skipBrewTimeBtn" style="display:${isVoluntary ? 'none' : 'inline-block'};">跳过时间</button>
+          </div>
+        </div>
+        <div class="brewContent">
+          <div class="brewPanel">
+            <h3>👜 材料背包</h3>
+            <div id="brewInventory"></div>
+          </div>
+          <div class="brewPanel">
+            <h3>🫕 炼药锅</h3>
+            <div id="cauldronSlots"></div>
+            <button id="startBrewBtn">开始炼制</button>
+            <div class="brewedList">
+              <strong>已炼制药水：</strong>
+              <div id="brewedList"></div>
+            </div>
+          </div>
+          <div class="brewPanel">
+            <h3>📖 配方手册</h3>
+            <div id="recipeBook"></div>
+          </div>
+        </div>
+      `;
+      
+      brewUI.classList.add('show');
+      document.querySelector('.hud').style.visibility = 'hidden';
+      
+      document.getElementById('returnExploreBtn').onclick = closeBrewAndReturn;
+      document.getElementById('skipBrewTimeBtn').onclick = skipBrewTime;
+      document.getElementById('startBrewBtn').onclick = doBrew;
+      
+      if (!isVoluntary) startBrewTimer();
+      renderBrewUI();
+    }
+    
+    function closeBrewAndReturn() {
+      if (state.brewTimerId) clearTimeout(state.brewTimerId);
+      state.brewTimerId = null;
+      state.phase = 'explore';
+      state.brewMode = null;
+      document.getElementById('brewUI').classList.remove('show');
+      document.querySelector('.hud').style.visibility = '';
+    }
+    
+    function hideBrewUI() {
+      if (state.brewTimerId) clearTimeout(state.brewTimerId);
+      state.brewTimerId = null;
+      document.getElementById('brewUI').classList.remove('show');
+      document.querySelector('.hud').style.visibility = '';
+    }
+    
+    function skipBrewTime() {
+      if (state.brewTimerId) clearTimeout(state.brewTimerId);
+      state.brewTimerId = null;
+      endBrewPhase();
+    }
+    
+    function renderBrewUI() {
+      const inv = document.getElementById('brewInventory');
+      const count = {};
+      state.inventory.forEach(id => count[id] = (count[id] || 0) + 1);
+      let html = '';
+      Object.keys(count).forEach(id => {
+        const mat = MATERIALS[id];
+        if (!mat || id === 'garden_key') return;
+        html += `<div class="brewMat" data-id="${id}" style="display:flex; align-items:center; gap:8px; padding:8px; border:2px solid #6b4a8a; border-radius:8px; margin:4px; cursor:pointer;">
+          <img src="${mat.img}" style="width:28px; height:28px; image-rendering:pixelated;">
+          <span>${mat.name}</span>
+          <span style="color:#ffd700;">x${count[id]}</span>
+        </div>`;
+      });
+      inv.innerHTML = html || '<p>暂无材料</p>';
+      
+      inv.querySelectorAll('.brewMat').forEach(el => {
+        el.onclick = () => addToCauldron(el.dataset.id);
+      });
+
+      const cauldron = document.getElementById('cauldronSlots');
+      var slotHtml = '<div>';
+      for (var i = 0; i < 4; i++) {
+        var mid = state.cauldron[i];
+        var cls = mid ? 'brewSlot filled' : 'brewSlot';
+        var content = mid ? (MATERIALS[mid]?.img ? `<img src="${MATERIALS[mid].img}" style="width:40px; height:40px; image-rendering:pixelated;">` : (MATERIALS[mid]?.emoji || mid)) : '⬜';
+        slotHtml += '<div class="' + cls + '" data-slot="' + i + '">' + content + '</div>';
+      }
+      slotHtml += '</div><button id="clearCauldron">清空</button>';
+      cauldron.innerHTML = slotHtml;
+      
+      cauldron.querySelectorAll('.brewSlot.filled').forEach(el => {
+        el.onclick = function() { removeFromCauldron(parseInt(this.dataset.slot, 10)); };
+      });
+      
+      document.getElementById('clearCauldron').onclick = function() {
+        state.cauldron.forEach(id => state.inventory.push(id));
+        state.cauldron = [];
+        renderBrewUI();
+      };
+
+      var book = document.getElementById('recipeBook');
+      var shownRecipes = state.recipesUnlocked.filter(rid => rid !== 'hidden');
+      book.innerHTML = shownRecipes.map(rid => {
+        var r = RECIPES.find(x => x.id === rid);
+        if (!r) return '';
+        var matStr = r.materials.map(m => {
+          const mat = MATERIALS[m];
+          return mat?.img ? `<img src="${mat.img}" style="width:20px; height:20px; image-rendering:pixelated; vertical-align:middle;">` : (mat?.emoji || m);
+        }).join(' + ');
+        return '<div class="recipeItem"><strong>' + r.name + '</strong><br><span>' + matStr + '</span></div>';
+      }).join('') || '<p>尚未获得配方</p>';
+
+      var brewedEl = document.getElementById('brewedList');
+      if (brewedEl) {
+        if (state.brewedPotions.length === 0) brewedEl.innerHTML = '<span>暂无</span>';
+        else brewedEl.innerHTML = state.brewedPotions.map(r => {
+          var rec = RECIPES.find(x => x.result === r);
+          return rec ? '<span>' + rec.name + '</span>' : '';
+        }).join('');
+      }
+    }
+    
+    function removeFromCauldron(slotIndex) {
+      if (slotIndex < 0 || slotIndex >= state.cauldron.length) return;
+      var mid = state.cauldron[slotIndex];
+      if (!mid) return;
+      state.cauldron.splice(slotIndex, 1);
+      state.inventory.push(mid);
+      renderBrewUI();
+    }
+    
+    function addToCauldron(materialId) {
+      if (materialId === 'garden_key') return;
+      const idx = state.inventory.indexOf(materialId);
+      if (idx === -1 || state.cauldron.length >= 4) return;
+      state.inventory.splice(idx, 1);
+      state.cauldron.push(materialId);
+      renderBrewUI();
+    }
+    
+    function startBrewTimer() {
+      var el = document.getElementById('brewTimer');
+      function tick() {
+        state.brewTimeLeft--;
+        el.textContent = '炼药时间: ' + state.brewTimeLeft + ' 秒';
+        if (state.brewTimeLeft <= 0) {
+          if (state.brewTimerId) clearTimeout(state.brewTimerId);
+          state.brewTimerId = null;
+          endBrewPhase();
+          return;
+        }
+        state.brewTimerId = setTimeout(tick, 1000);
+      }
+      state.brewTimerId = setTimeout(tick, 1000);
+    }
+    
+    function doBrew() {
+      var r = RECIPES.find(rec => {
+        if (rec.materials.length !== state.cauldron.length) return false;
+        var c = state.cauldron.slice().sort();
+        var m = rec.materials.slice().sort();
+        return c.every((id, i) => id === m[i]);
+      });
+      if (r) {
+        state.brewedPotions.push(r.result);
+        checkAchievements();
+        soundSuccess();
+        showDialogue('炼制成功！获得：' + r.name);
+        state.cauldron = [];
+      } else {
+        soundFail();
+        showDialogue('配方不对，炼制失败…');
+        state.cauldron = [];
+      }
+      renderBrewUI();
+    }
+    
+    function endBrewPhase() {
+      hideBrewUI();
+      showEnding();
+    }
+    
+    function showEnding() {
+      checkAchievements();
+      const potions = state.brewedPotions;
+      const hidden = potions.includes('hidden');
+      let title = '', text = '';
+      if (hidden) {
+        title = '🌟 隐藏结局：暗影龙裔';
+        text = '你炼出了传说中的暗影龙息。';
+      } else if (potions.length >= 3) {
+        title = '🏆 传奇女巫';
+        text = '你成功炼制了多种药水。';
+      } else if (potions.length >= 1) {
+        title = '✨ 普通女巫';
+        text = '你完成了一些炼制。';
+      } else {
+        title = '😢 遗憾结局';
+        text = '没能炼出药水。';
+      }
+      const modal = document.getElementById('modal');
+      document.getElementById('modalContent').innerHTML =
+        '<h2>' + title + '</h2><p>' + text + '</p><p>炼制: ' + potions.length + ' 种药水</p>' +
+        '<button id="restartBtn" style="margin-top:12px; padding:8px 16px;">返回菜单</button>';
+      modal.classList.add('show');
+      document.getElementById('restartBtn').onclick = returnToMenu;
+    }
+
+    // ============ 成就系统 ============
+    function checkAchievements() {
+      const a = state.achievements;
+      
+      // 材料大师：收集全部5种材料
+      const uniqueMaterials = new Set(state.inventory).size;
+      if (uniqueMaterials >= 5 && !a.collector) {
+        a.collector = true;
+        showAchievement('材料大师', '收集全部5种材料');
+      }
+      
+      // 炼药师：成功炼制3种药水
+      if (state.brewedPotions.length >= 3 && !a.brewer) {
+        a.brewer = true;
+        showAchievement('炼药师', '成功炼制3种药水');
+      }
+      
+      // 钥匙守护者
+      if (state.hasGardenKey && !a.keymaster) {
+        a.keymaster = true;
+        showAchievement('钥匙守护者', '找到花园钥匙');
+      }
+      
+      // 猫咪朋友
+      if (state.catRewardGiven && !a.catLover) {
+        a.catLover = true;
+        showAchievement('猫咪朋友', '喂食猫咪');
+      }
+      
+      // 隐藏结局
+      if (state.brewedPotions.includes('hidden') && !a.hiddenEnding) {
+        a.hiddenEnding = true;
+        showAchievement('暗影之主', '达成隐藏结局');
+      }
+      
+      // 传奇女巫：解锁全部成就
+      const allUnlocked = Object.values(a).every(v => v === true);
+      if (allUnlocked && !a.masterWitch) {
+        a.masterWitch = true;
+        showAchievement('传奇女巫', '解锁全部成就', '👑');
+      }
+    }
+
+    function showAchievement(name, desc, icon = '🏆') {
+      const toast = document.createElement('div');
+      toast.style.cssText = `
+        position: fixed; top: 20px; right: 20px;
+        background: linear-gradient(135deg, #6b4a8a, #8b6aaa);
+        border: 3px solid #ffd700; border-radius: 12px;
+        padding: 15px 25px; color: #ffd700; font-size: 16px;
+        z-index: 4000; animation: slideIn 0.5s, fadeOut 0.5s 2.5s forwards;
+        box-shadow: 0 0 20px rgba(255,215,0,0.3);
+      `;
+      toast.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 24px;">${icon}</span>
+          <div>
+            <div style="font-weight: bold;">成就解锁！</div>
+            <div>${name} - ${desc}</div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function updateAchievementsScreen() {
+      const grid = document.getElementById('achievementGrid');
+      if (!grid) return;
+      
+      grid.innerHTML = ACHIEVEMENTS.map(ach => {
+        const unlocked = state.achievements[ach.id];
+        return `
+          <div class="achievementCard ${unlocked ? 'unlocked' : ''}">
+            <div class="icon">${ach.icon}</div>
+            <div class="name">${ach.name}</div>
+            <div class="desc">${ach.desc}</div>
+            <div class="status">${unlocked ? '✓ 已解锁' : '🔒 未解锁'}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ============ 开始界面控制 ============
+    function startGame() {
+      document.getElementById('startScreen').classList.add('hidden');
+      document.querySelector('.hud').style.opacity = '1';
+      
+      if (!state.achievements.starter) {
+        state.achievements.starter = true;
+        showAchievement('初出茅庐', '开始第一次冒险', '🌟');
+      }
+      
+      playGameBGM();
+    }
+
+    function showAchievements() {
+      updateAchievementsScreen();
+      document.getElementById('achievementScreen').classList.add('show');
+    }
+
+    function hideAchievements() {
+      document.getElementById('achievementScreen').classList.remove('show');
+    }
+
+    function returnToMenu() {
+      // 重置游戏状态
+      state.currentMap = 'floor1';
+      state.player.gridX = 10;
+      state.player.gridY = 8;
+      state.player.pixelX = 10 * TILE_SIZE;
+      state.player.pixelY = 8 * TILE_SIZE;
+      state.player.moving = false;
+      state.inventory = [];
+      state.recipesUnlocked = [];
+      state.hasGardenKey = false;
+      state.elapsed = 0;
+      state.phase = 'explore';
+      state.brewedPotions = [];
+      state.cauldron = [];
+      state.pickedItems = {};
+      state.interactableFirstDone = {};
+      state.interactableCollected = {};
+      state.catAsleep = false;
+      state.catRewardGiven = false;
+      state.achievements = {
+        starter: false, collector: false, brewer: false, explorer: false,
+        keymaster: false, catLover: false, hiddenEnding: false, masterWitch: false
+      };
+      state.mapsVisited = ['floor1'];
+      
+      document.getElementById('startScreen').classList.remove('hidden');
+      document.querySelector('.hud').style.opacity = '0.5';
+      document.getElementById('modal').classList.remove('show');
+      document.getElementById('brewUI').classList.remove('show');
+      document.getElementById('mapLabel').textContent = MAPS.floor1.name;
+      
+      playMenuBGM();
+    }
+
+    function checkMapExplored() {
+      const mapsVisited = new Set(state.mapsVisited || []);
+      mapsVisited.add(state.currentMap);
+      state.mapsVisited = Array.from(mapsVisited);
+      
+      if (mapsVisited.size >= 4 && !state.achievements.explorer) {
+        state.achievements.explorer = true;
+        showAchievement('探险家', '探索全部4个地图', '🗺️');
+      }
+    }
+
+    // ============ 绘制系统 ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 加载图片
+    const images = {};
+    function loadImages() {
+      images.mushroom = new Image(); images.mushroom.src = MOONLIGHT_GRASS_IMG;
+      images.herb = new Image(); images.herb.src = FLAME_FLOWER_IMG;
+      images.crystal = new Image(); images.crystal.src = CRYSTAL_DUST_IMG;
+      images.cat = new Image(); images.cat.src = CAT_IMG_BASE64;
+      images.bg = new Image(); images.bg.src = FLOOR1_BG_BASE64;
+    }
+    loadImages();
+
+    function drawGame() {
+      const map = MAPS[state.currentMap];
+      if (!map) return;
+
+      // 动态加载当前地图的背景图片
+      if (!images[map.name]) {
+        images[map.name] = new Image();
+        images[map.name].src = map.background;
+      }
+      
+      const bgImg = images[map.name];
+      if (bgImg.complete && bgImg.naturalWidth > 0) {
+        ctx.drawImage(bgImg, 0, 0, 800, 600);
+      } else {
+        // 图片未加载时显示网格备用
+        ctx.fillStyle = '#2d1b4e';
+        ctx.fillRect(0, 0, 800, 600);
+        ctx.strokeStyle = '#3d2b5e';
+        for (let i = 0; i <= MAP_WIDTH; i++) {
+          ctx.beginPath();
+          ctx.moveTo(i * TILE_SIZE, 0);
+          ctx.lineTo(i * TILE_SIZE, 600);
+          ctx.stroke();
+        }
+        for (let i = 0; i <= MAP_HEIGHT; i++) {
+          ctx.beginPath();
+          ctx.moveTo(0, i * TILE_SIZE);
+          ctx.lineTo(800, i * TILE_SIZE);
+          ctx.stroke();
+        }
+      }
+
+      // 绘制障碍物
+      //ctx.fillStyle = '#4a2c6a';
+      //ctx.globalAlpha = 0.5;
+      //map.obstacles.forEach(o => {
+      //  ctx.fillRect(o.x * TILE_SIZE, o.y * TILE_SIZE, o.w * TILE_SIZE, o.h * TILE_SIZE);
+      //});
+      //ctx.globalAlpha = 1;
+
+      // 绘制传送点
+      map.portals.forEach(p => {
+        ctx.fillStyle = 'rgba(255,215,0,0.3)';
+        ctx.fillRect(p.x * TILE_SIZE, p.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        ctx.font = '12px monospace';
+        ctx.fillStyle = '#ffd700';
+        ctx.fillText(p.label || '🚪', p.x * TILE_SIZE + 4, p.y * TILE_SIZE + 20);
+      });
+
+      // 绘制互动物
+      map.interactables.forEach(i => {
+        if (i.type === 'firstThenCollect' && state.interactableCollected[i.id]) return;
+        
+        // 只绘制猫咪（有图片的互动对象）
+        let img = null;
+        if (i.id === 'cat') img = images.cat;
+        
+        if (img && img.complete) {
+          ctx.drawImage(img, i.x * TILE_SIZE, i.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+        // 其他互动对象（书架、壁画、魔法书等）不显示任何图标
+      });
+
+      // 绘制物品
+      map.items.forEach(item => {
+        if (state.pickedItems[state.currentMap + '_' + item.id]) return;
+        
+        let img = null;
+        if (item.materialId === 'moonlight_grass') img = images.mushroom;
+        else if (item.materialId === 'flame_flower') img = images.herb;
+        else if (item.materialId === 'crystal_dust') img = images.crystal;
+        else if (item.materialId === 'shadow_mushroom') {
+         if (!images.shadow_mushroom) {
+            images.shadow_mushroom = new Image();
+            images.shadow_mushroom.src = 'https://i.ibb.co/8LGNrm9t/pixellab-pixel-art-shadow-mushroom-da-1774546215452.png';
+          }
+          img = images.shadow_mushroom;
+        } else if (item.materialId === 'dragon_scale') {
+          if (!images.dragon_scale) {
+            images.dragon_scale = new Image();
+            images.dragon_scale.src = 'https://i.ibb.co/N6SxsV9c/pixellab-pixel-art-dragon-scale-iride-1774546271801.png';
+          }
+          img = images.dragon_scale;
+        }
+        else if (item.materialId === 'cat_food') {
+          if (!images.cat_food) {
+            images.cat_food = new Image();
+            images.cat_food.src = 'https://i.ibb.co/zVBR7vHx/pixellab-pixel-art-wooden-bowl-with-dr-1774546337165.png';
+          }
+          img = images.cat_food;
+        }
+
+        if (img && img.complete) {
+          ctx.drawImage(img, item.x * TILE_SIZE, item.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        } else {
+          ctx.font = '24px serif';
+          ctx.fillStyle = '#fff';
+          ctx.fillText(item.isKey ? '🔑' : '📦', item.x * TILE_SIZE + 4, item.y * TILE_SIZE + TILE_SIZE - 4);
+        }
+      });
+
+            // 绘制玩家（使用动画系统）
+      const witchImg = getCurrentWitchImage();
+      if (witchImg && witchImg.complete) {
+        const charScale = 2.5;  // 放大倍数：3.5倍（可改为3或4）
+        const charSize = TILE_SIZE * charScale;
+        // 计算偏移，让人物底部对齐格子中心
+        const offsetX = (TILE_SIZE - charSize) / 2;
+        const offsetY = TILE_SIZE - charSize;  // 底部对齐
+        ctx.drawImage(witchImg, state.player.pixelX + offsetX, state.player.pixelY + offsetY, charSize, charSize);
+      } else {
+        ctx.fillStyle = '#9b59b6';
+        ctx.fillRect(state.player.pixelX, state.player.pixelY, TILE_SIZE, TILE_SIZE);
+      }
+    }
+
+    function drawHUD() {
+      const t = Math.max(0, Math.floor(state.totalTime - state.elapsed));
+      const min = Math.floor(t / 60), sec = t % 60;
+      document.getElementById('timer').textContent = `⏱ ${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+    }
+
+    // ============ 主循环 ============
+    let lastTime = performance.now();
+    
+    function update(dt) {
+      if (state.phase !== 'explore') return;
+
+      state.elapsed += dt / 1000;
+      if (state.elapsed >= state.totalTime) {
+        showBrewUI(false);
+        return;
+      }
+
+      // 更新平滑移动
+      updateMovement(dt);
+      
+      // 只有在没有移动时才能开始新移动
+      if (!state.player.moving) {
+        if (state.keys.w) { startMove(0, -1); }
+        if (state.keys.s) { startMove(0, 1); }
+        if (state.keys.a) { startMove(-1, 0); }
+        if (state.keys.d) { startMove(1, 0); }
+      }
+    }
+
+    function loop(now) {
+      const dt = Math.min(now - lastTime, 100);
+      lastTime = now;
+      
+            // 更新动画（获取当前是否移动、是否跑步、当前方向）
+      const isMoving = state.player.moving;
+      const isRunning = state.keys.shift || state.touchRun;
+      const currentDirection = state.player.lastMoveDirection;
+      updateAnimationFrame(now, isMoving, isRunning, currentDirection);
+
+      update(dt);
+      drawHUD();
+      if (state.phase === 'explore') drawGame();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ 事件监听 ============
+    document.addEventListener('keydown', e => {
+      if (e.code === 'KeyW') { e.preventDefault(); state.keys.w = true; }
+      if (e.code === 'KeyA') { e.preventDefault(); state.keys.a = true; }
+      if (e.code === 'KeyS') { e.preventDefault(); state.keys.s = true; }
+      if (e.code === 'KeyD') { e.preventDefault(); state.keys.d = true; }
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { 
+        e.preventDefault(); 
+        state.keys.shift = true; 
+      }
+      if (e.code === 'KeyE') { e.preventDefault(); tryInteract(); }
+      if (e.code === 'KeyI') { e.preventDefault(); showInventory(); }
+      if (e.code === 'Space') { e.preventDefault(); showBrewUI(true); }
+    });
+    
+    document.addEventListener('keyup', e => {
+      if (e.code === 'KeyW') state.keys.w = false;
+      if (e.code === 'KeyA') state.keys.a = false;
+      if (e.code === 'KeyS') state.keys.s = false;
+      if (e.code === 'KeyD') state.keys.d = false;
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') state.keys.shift = false;
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyP') {
+        e.preventDefault();
+        console.log(`   🗺️ 地图: ${MAPS[state.currentMap].name}`);
+        console.log(`   📍 坐标: X=${state.player.gridX}, Y=${state.player.gridY}`);
+        console.log(`   🧙 像素位置: (${state.player.pixelX}, ${state.player.pixelY})`);
+      }
+    });
+
+
+    // 触摸按钮
+    document.querySelectorAll('.touchBtn').forEach(btn => {
+      const key = btn.dataset.key;
+      const keyMap = { KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd' };
+      const k = keyMap[key];
+      
+      btn.addEventListener('touchstart', e => { 
+        e.preventDefault(); 
+        if (k) state.keys[k] = true; 
+        else if (key === 'KeyE') tryInteract(); 
+        else if (key === 'KeyI') showInventory(); 
+      });
+      
+      btn.addEventListener('touchend', e => { 
+        e.preventDefault(); 
+        if (k) state.keys[k] = false; 
+      });
+    });
+
+    // 跑步按钮
+    const touchRunBtn = document.getElementById('touchRunBtn');
+    if (touchRunBtn) {
+      touchRunBtn.addEventListener('touchstart', e => {
+        e.preventDefault();
+        state.touchRun = true;
+        touchRunBtn.classList.add('run');
+      });
+      touchRunBtn.addEventListener('touchend', e => {
+        e.preventDefault();
+        state.touchRun = false;
+        touchRunBtn.classList.remove('run');
+      });
+    }
+
+    // ============ 初始化 ============
+    document.getElementById('startGameBtn').onclick = startGame;
+    document.getElementById('viewAchievementsBtn').onclick = showAchievements;
+    document.getElementById('closeAchievementsBtn').onclick = hideAchievements;
+    document.getElementById('openBrewBtn').onclick = () => showBrewUI(true);
+    document.getElementById('triggerEndBtn').onclick = () => { state.elapsed = state.totalTime; };
+    document.getElementById('musicToggleBtn').onclick = toggleBGM;
+    
+    document.getElementById('touchBrewBtn').onclick = () => showBrewUI(true);
+    
+    document.getElementById('mapLabel').textContent = MAPS[state.currentMap].name;
+    
+    // 开始播放菜单音乐
+    window.addEventListener('load', () => setTimeout(playMenuBGM, 500));
+        // 加载角色动画图片
+    loadWitchImages(() => {
+        console.log('角色动画加载完成');
+    });
+
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>
