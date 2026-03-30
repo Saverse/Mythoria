@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>女巫冒险 - 网格移动版</title>
+  <title>Mythoria</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -112,7 +112,7 @@
     .modalContent h2 { margin-bottom: 16px; color: #ffd700; }
     .modalContent p { margin: 8px 0; line-height: 1.6; }
     
-    /* ===== 炼药界面样式 ===== */
+    /* ===== 煉藥界面样式 ===== */
     #brewUI {
       display: none;
       position: absolute;
@@ -458,14 +458,19 @@
       <div class="hud">
         <div>
           <div id="timer">⏱ 05:00</div>
-          <div id="hint">WASD移动 Shift跑步 E互动 I背包 空格炼药</div>
+          <div id="hint">WASD 移動 | Shift 跑 | E 互動 | I 背包 | Space 煉藥</div>
         </div>
         <div style="display:flex; align-items:center; gap:12px;">
-          <span id="mapLabel">城堡一层</span>
-          <button id="openBrewBtn" type="button">🫕 炼药</button>
-          <button id="triggerEndBtn" type="button">⏭ 结束</button>
+          <span id="mapLabel">城堡一層</span>
+          <button id="openBrewBtn" type="button">🫕 煉藥</button>
+          <button id="triggerEndBtn" type="button">⏭ 跳過時間</button>
           <button id="musicToggleBtn" type="button">🎵 开</button>
         </div>
+      </div>
+      <div id="questDisplay" style="position: absolute; top: 70px; left: 8px; background: rgba(0,0,0,0.6); border-radius: 8px; padding: 6px 12px; z-index: 51; pointer-events: none;">
+        <div style="font-size: 12px; color: #ffd700;">📜 当前任务</div>
+        <div id="questName" style="font-size: 14px; color: #fff;"></div>
+        <div id="questDesc" style="font-size: 11px; color: #b0a0c0;"></div>
       </div>
       <div id="touchControls">
         <button class="touchBtn" data-key="KeyW">▲</button>
@@ -474,7 +479,7 @@
         <button class="touchBtn" data-key="KeyD">▶</button>
         <button class="touchBtn" data-key="KeyE">E</button>
         <button class="touchBtn" data-key="KeyI">I</button>
-        <button class="touchBtn" id="touchBrewBtn" title="炼药">🫕</button>
+        <button class="touchBtn" id="touchBrewBtn" title="煉藥">🫕</button>
         <button class="touchBtn" id="touchRunBtn" title="跑步">🏃</button>
       </div>
     </div>
@@ -486,22 +491,22 @@
     </div>
     <!-- 开始界面 -->
     <div id="startScreen">
-      <h1 class="startTitle">🧙‍♀️ 女巫冒险</h1>
-      <h1 class="startTitle" style="font-size: 36px; margin-top: -20px;">网格移动版</h1>
+      <h1 class="startTitle">Mythoria</h1>
+      <h1 class="startTitle" style="font-size: 36px; margin-top: -20px;">女巫的試煉</h1>
       <div class="startButtons">
-        <button class="startButton" id="startGameBtn">开始游戏</button>
+        <button class="startButton" id="startGameBtn">開始遊戲</button>
         <button class="achievementButton" id="viewAchievementsBtn">🏆 成就</button>
       </div>
       <div class="instructions">
-        <p>WASD 移动 | Shift 跑步 | E 互动 | I 背包 | 空格 炼药</p>
-        <p>每步移动一格，收集材料，炼制魔药</p>
+        <p></p>
+        <p>HKU AILT project</p>
       </div>
     </div>
     <!-- 成就界面 -->
     <div id="achievementScreen">
       <div class="achievementHeader">
-        <h2 class="achievementTitle">🏆 已解锁成就</h2>
-        <button class="closeButton" id="closeAchievementsBtn">关闭</button>
+        <h2 class="achievementTitle">🏆 已解鎖成就</h2>
+        <button class="closeButton" id="closeAchievementsBtn">Back</button>
       </div>
       <div class="achievementGrid" id="achievementGrid">
         <!-- 成就列表会通过JavaScript动态生成 -->
@@ -604,37 +609,36 @@
     const FLOOR1_BG_BASE64 = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MDAiIGhlaWdodD0iNjAwIiB2aWV3Qm94PSIwIDAgODAwIDYwMCI+PHJlY3Qgd2lkdGg9IjgwMCIgaGVpZ2h0PSI2MDAiIGZpbGw9IiMyZDFiNGUiLz48cGF0aCBkPSJNMCAwaDgwdjYwMEgweiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjM2QyYjVlIiBzdHJva2Utd2lkdGg9IjEiLz48L3N2Zz4=';
     
     // ============ 背景音乐 (Base64) ============
-    const MENU_BGM_BASE64 = 'data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVQAAACAgICAf39/f39/f3+AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAf39/f38=';
-    const GAME_BGM_BASE64 = 'data:audio/wav;base64,UklGRmQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVQAAACAgICAf39/f39/f3+AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAf39/f38=';
-    
+    const MENU_BGM_URL = 'https://files.catbox.moe/8ejnh6.mp3';
+    const GAME_BGM_URL = 'https://files.catbox.moe/8ejnh6.mp3'; 
     // ============ 材料定义 ============
     const MATERIALS = {
       moonlight_grass: { name: '月光草', emoji: '🌿', img: 'https://i.ibb.co/3mc7h7z9/pixellab-pixel-art-glowing-moon-grass-1774545818615.png'},
       flame_flower: { name: '火焰花', emoji: '🔥', img: 'https://i.ibb.co/cXCVS1xs/pixellab-pixel-art-flame-flower-blazi-1774546029683.png'},
-      crystal_dust: { name: '水晶尘', emoji: '✨', img: 'https://i.ibb.co/SXP46LhS/pixellab-pixel-art-crystal-dust-magic-1774546159419.png' },
+      crystal_dust: { name: '水晶塵', emoji: '✨', img: 'https://i.ibb.co/SXP46LhS/pixellab-pixel-art-crystal-dust-magic-1774546159419.png' },
       shadow_mushroom: { name: '暗影菇', emoji: '🍄', img: 'https://i.ibb.co/8LGNrm9t/pixellab-pixel-art-shadow-mushroom-da-1774546215452.png' },
-      dragon_scale: { name: '龙鳞', emoji: '🐉', img: 'https://i.ibb.co/N6SxsV9c/pixellab-pixel-art-dragon-scale-iride-1774546271801.png' },
-      cat_food: { name: '猫粮', emoji: '🥣', img: 'https://i.ibb.co/zVBR7vHx/pixellab-pixel-art-wooden-bowl-with-dr-1774546337165.png' }
+      dragon_scale: { name: '龍鱗', emoji: '🐉', img: 'https://i.ibb.co/N6SxsV9c/pixellab-pixel-art-dragon-scale-iride-1774546271801.png' },
+      cat_food: { name: '貓糧', emoji: '🥣', img: 'https://i.ibb.co/zVBR7vHx/pixellab-pixel-art-wooden-bowl-with-dr-1774546337165.png' }
     };
 
     // ============ 药水配方 ============
     const RECIPES = [
-      { id: 'heal', name: '治疗药水', materials: ['moonlight_grass', 'flame_flower'], result: 'heal' },
-      { id: 'mana', name: '魔力药水', materials: ['crystal_dust', 'moonlight_grass'], result: 'mana' },
-      { id: 'strength', name: '力量药水', materials: ['dragon_scale', 'flame_flower'], result: 'strength' },
-      { id: 'hidden', name: '暗影龙息', materials: ['shadow_mushroom', 'dragon_scale'], result: 'hidden' }
+      { id: 'heal', name: '治療藥水', materials: ['moonlight_grass', 'flame_flower'], result: 'heal' },
+      { id: 'mana', name: '魔力藥水', materials: ['crystal_dust', 'moonlight_grass'], result: 'mana' },
+      { id: 'strength', name: '力量藥水', materials: ['dragon_scale', 'flame_flower'], result: 'strength' },
+      { id: 'hidden', name: '暗影龍息', materials: ['shadow_mushroom', 'dragon_scale'], result: 'hidden' }
     ];
 
     // ============ 成就定义 ============
     const ACHIEVEMENTS = [
-      { id: 'starter', name: '初出茅庐', desc: '开始第一次冒险', icon: '🌟' },
-      { id: 'collector', name: '材料大师', desc: '收集全部5种材料', icon: '📦' },
-      { id: 'brewer', name: '炼药师', desc: '成功炼制3种药水', icon: '🧪' },
-      { id: 'explorer', name: '探险家', desc: '探索全部4个地图', icon: '🗺️' },
-      { id: 'keymaster', name: '钥匙守护者', desc: '找到花园钥匙', icon: '🔑' },
-      { id: 'catLover', name: '猫咪朋友', desc: '喂食猫咪', icon: '🐱' },
-      { id: 'hiddenEnding', name: '暗影之主', desc: '达成隐藏结局', icon: '🌑' },
-      { id: 'masterWitch', name: '传奇女巫', desc: '解锁全部成就', icon: '👑' }
+      { id: 'starter', name: '初出茅廬', desc: '初次踏上旅途', icon: '🌟' },
+      { id: 'collector', name: '材料大師', desc: '收集了所有的材料', icon: '📦' },
+      { id: 'brewer', name: '煉藥師', desc: '煉製了所有藥水', icon: '🧪' },
+      { id: 'explorer', name: '探險家', desc: '探索了所有地圖', icon: '🗺️' },
+      { id: 'keymaster', name: '鑰匙守護者', desc: '找到花園鑰匙', icon: '🔑' },
+      { id: 'catLover', name: '會說話的貓', desc: '哦⋯⋯這是？', icon: '🐱' },
+      { id: 'hiddenEnding', name: '製作的認可', desc: '達成隱藏結局', icon: '🌑' },
+      { id: 'masterWitch', name: '傳奇女巫', desc: '解鎖全部成就！感謝遊玩！', icon: '👑' }
     ];
 
     // ============ 音效系统 ============
@@ -672,11 +676,21 @@
 
     function initBGM() {
       try {
-        bgmMenuAudio = new Audio(MENU_BGM_BASE64);
+        // 如果已经存在，先清理
+        if (bgmMenuAudio) {
+          bgmMenuAudio.pause();
+          bgmMenuAudio = null;
+        }
+        if (bgmGameAudio) {
+          bgmGameAudio.pause();
+          bgmGameAudio = null;
+        }
+
+        bgmMenuAudio = new Audio(MENU_BGM_URL);
         bgmMenuAudio.loop = true;
         bgmMenuAudio.volume = 0.3;
         
-        bgmGameAudio = new Audio(GAME_BGM_BASE64);
+        bgmGameAudio = new Audio(GAME_BGM_URL);
         bgmGameAudio.loop = true;
         bgmGameAudio.volume = 0.4;
         
@@ -689,19 +703,35 @@
 
     function playMenuBGM() {
       if (!bgmEnabled) return;
-      if (bgmGameAudio) bgmGameAudio.pause();
+      if (bgmGameAudio && !bgmGameAudio.paused) {
+        bgmGameAudio.pause();
+        bgmGameAudio.currentTime = 0;
+      }
       if (bgmMenuAudio) {
-        bgmMenuAudio.play().catch(() => {});
+        // 如果已经在播放，不重复播放
+        if (bgmMenuAudio.paused) {
+          bgmMenuAudio.play().catch(() => {});
+        }
       }
     }
 
     function playGameBGM() {
       if (!bgmEnabled) return;
-      if (bgmMenuAudio) bgmMenuAudio.pause();
+  
+      // 如果菜单音乐正在播放，先停止并重置
+      if (bgmMenuAudio && !bgmMenuAudio.paused) {
+        bgmMenuAudio.pause();
+        bgmMenuAudio.currentTime = 0;
+      }
+      
       if (bgmGameAudio) {
-        bgmGameAudio.play().catch(() => {});
+        // 如果已经在播放，不重复播放
+        if (bgmGameAudio.paused) {
+          bgmGameAudio.play().catch(() => {});
+        }
       }
     }
+
 
     function pauseAllBGM() {
       if (bgmMenuAudio) bgmMenuAudio.pause();
@@ -712,14 +742,23 @@
       bgmEnabled = !bgmEnabled;
       const musicBtn = document.getElementById('musicToggleBtn');
       if (bgmEnabled) {
+        // 根据当前场景播放对应音乐
         if (document.getElementById('startScreen').classList.contains('hidden')) {
-          playGameBGM();
+          // 游戏界面
+          if (bgmGameAudio && bgmGameAudio.paused) {
+            bgmGameAudio.play().catch(() => {});
+          }
         } else {
-          playMenuBGM();
+          // 开始界面
+          if (bgmMenuAudio && bgmMenuAudio.paused) {
+            bgmMenuAudio.play().catch(() => {});
+          }
         }
         if (musicBtn) musicBtn.textContent = '🎵 开';
       } else {
-        pauseAllBGM();
+        // 暂停所有音乐
+        if (bgmMenuAudio && !bgmMenuAudio.paused) bgmMenuAudio.pause();
+        if (bgmGameAudio && !bgmGameAudio.paused) bgmGameAudio.pause();
         if (musicBtn) musicBtn.textContent = '🔇 关';
       }
     }
@@ -805,13 +844,22 @@
         starter: false, collector: false, brewer: false, explorer: false,
         keymaster: false, catLover: false, hiddenEnding: false, masterWitch: false
       },
-      mapsVisited: ['floor1']
+      mapsVisited: ['floor1'],
+      currentQuest: {
+        id: 'open_chest',           // 改为新任务ID
+        name: '開啟大廳寶箱',        // 新任务名称
+        description: '你作為女巫學徒進入這座城堡參與試煉，落入你眼前的是一個閃閃發光的箱子。你還在等什麼？打開它！',  // 新任务描述
+        target: { itemId: 'chest_key' },  // 假设宝箱需要钥匙，或直接完成
+        completed: false,
+        completionMessage: '你如願以償地打開了寶箱，有一個奇怪的念頭驅使著你：還有呢？鑰匙呢？'
+      },
+      completedQuests: []
     };
 
     // ============ 地图定义 ============
     const MAPS = {
       floor1: {
-        name: '城堡一层',
+        name: '城堡一層',
         spawn: { x: 10, y: 8 },
         background: 'https://i.ibb.co/S4jst3Jy/Tower-1.jpg',
         obstacles: [{ x: 9, y: 5, w: 4, h: 1 },{ x: 12, y: 6, w: 3, h: 1 },{ x: 14, y: 7, w: 3, h: 1 }, 
@@ -819,9 +867,9 @@
             { x: 0, y: 8, w: 1, h: 4 },{ x: 1, y: 11, w: 6, h: 1 }, { x: 10, y: 11, w: 6, h: 1 }
         ],
         interactables: [
-          { id: 'mural_left', x: 2, y: 7, h: 2, type: 'dialogue', text: '你走近壁画，看见淡淡的紫色魔力从女人身上倾泻，你听见她的私语。', recipeId: 'heal' },
-          { id: 'chest', x: 5, y: 7, h: 1, type: 'dialogue', text: '你在宝箱里发现了一个泛黄的卷轴', recipeId: 'heal'},
-          { id: 'mural_right', x: 2, y: 2, type: 'dialogue', text: '你走近壁画，蓝色的火焰跃动于男人指尖，与其对上视线的一秒你若有所感，脊背发凉，快速移开了视线。'}
+          { id: 'mural_left', x: 2, y: 7, h: 2, type: 'dialogue', text: '你走近壁畫，看見淡紫色魔力從女人手心傾瀉，伴隨著她的私語，你覺得頭腦有些發脹。<br><i>學會了治癒藥水的製作！</i>', recipeId: 'heal' },
+          { id: 'chest', x: 5, y: 7, h: 1, type: 'dialogue', text: '你箱子里找到了一个奇怪的物品。<br><i>學會了魔力藥水的製作！</i>', recipeId: 'mana'},
+          { id: 'mural_right', x: 13, y: 7, type: 'dialogue', text: '你走近壁畫，藍色的火焰躍與男人指尖，與其對上視線的那一秒你心跳加速，脊背發涼，直覺告訴你不對勁，於是你快速地移開了視線。'}
         ],
         portals: [
           { x: 8, y: 5, to: 'floor2', toSpawn: { x: 8, y: 10 }, needKey: false, label: '楼梯↑' },
@@ -832,7 +880,7 @@
         ]
       },
       floor2: {
-        name: '城堡二层',
+        name: '城堡二層',
         spawn: { x: 11, y: 4 },
         background: 'https://i.ibb.co/rGZVzVJy/Tower-2.jpg',
         obstacles: [{ x: 4, y: 11, w: 3, h: 1 }, { x: 9, y: 11, w: 4, h: 1 }, { x: 12, y: 10, w: 4, h: 1 },
@@ -842,21 +890,21 @@
          
         ],
         interactables: [
-          { id: 'magic_book', x: 10, y: 6, w: 2, type: 'recipe', recipeId: 'mana' },
-
-          { id: 'wardrobe', x: 15, y: 6, type: 'dialogue', text: '衣柜里只有旧袍子。' },
-          { id: 'cat_shelf', x: 5, y: 6, type: 'firstThenGive', text: '书架上堆满旧书，落满灰尘。', giveItem: 'cat_food', giveLabel: '猫粮' }
+          { id: 'magic_book', x: 10, y: 6, w: 2, type: 'recipe', recipeId: 'strength' },
+          { id: 'pot', x: 8, y: 9, type: 'dialogue', text: '一口大鍋，裡面存放著不知經過了多久的黏稠魔藥，你看了一眼便不想再看。' },
+          { id: 'shelf1', x: 2, y: 8, type: 'dialogue', text: '書架上堆滿舊書，落滿灰塵。' },
+          { id: 'shelf2', x: 2, y: 8, type: 'dialogue', text: '你試圖找出有點用的東西，可惜什麼都沒發現。' },
+          { id: 'cat_shelf', x: 5, y: 6, type: 'firstThenGive', text: '書架上堆滿舊書，落滿灰塵。', giveItem: 'cat_food', giveLabel: '貓糧' }
         ],
         portals: [
           { x: 8, y: 11, to: 'floor1', toSpawn: { x: 8, y: 6 }, needKey: false, label: '楼梯↓' },
           { x: 8, y: 5, to: 'floor3', toSpawn: { x: 8, y: 10 }, needKey: false, label: '塔楼' }
         ],
         items: [
-          { id: 'flame_flower_1', x: 7, y: 12, materialId: 'flame_flower' }
         ]
       },
       floor3: {
-        name: '城堡三层',
+        name: '城堡三層',
         spawn: { x: 8, y: 10 },
         background: 'https://i.ibb.co/zV2YQ667/Tower-3.jpg',
         obstacles: [{ x: 1, y: 6, w: 6, h: 1 }, { x: 7, y: 5, w: 5, h: 1 }, { x: 12, y: 6, w: 2, h: 1 }, 
@@ -867,13 +915,13 @@
         ],
         interactables: [
           { id: 'cat', x: 8, y: 8, type: 'cat', img: CAT_IMG_BASE64 },
-          { id: 'magic_book', x: 12, y: 9, type: 'recipe', recipeId: 'mana' },
-          { id: 'telescope', x: 5, y: 7, type: 'dialogue', text: '望远镜里只有星星。' },
-          { id: 'cabinet', x: 9, y: 6, type: 'dialogue', text: '你在柜子里发现了点用剩的草药。' , giveMaterial: 'moonlight_grass'},
-          { id: ' get_crystal_dust', x: 4, y: 8, type:'remote_collect', text:'你拿走了桌子上的水晶尘<br>',targetItemId: 'display_crystal_dust', targetMaterial: 'crystal_dust'}
+          { id: 'magic_book', x: 12, y: 9, type: 'recipe', recipeId: 'strength' },
+          { id: 'telescope', x: 5, y: 7, type: 'dialogue', text: '望遠鏡裡只有星星' },
+          { id: 'cabinet', x: 9, y: 6, type: 'dialogue', text: '你在櫃子裡發現了點用剩的草藥。' , giveMaterial: 'moonlight_grass'},
+          { id: ' get_crystal_dust', x: 4, y: 8, type:'remote_collect', text:'你拿走了桌子上的水晶塵',targetItemId: 'display_crystal_dust', targetMaterial: 'crystal_dust'}
         ],
         portals: [
-          { x: 8, y: 11, to: 'floor2', toSpawn: { x: 8, y: 6 }, needKey: false, label: '楼梯↓' }
+          { x: 8, y: 11, to: 'floor2', toSpawn: { x: 8, y: 6 }, needKey: false, label: '樓梯↓' }
         ],
         items: [
           { id: 'garden_key', x: 8, y: 9, materialId: 'garden_key', isKey: true },
@@ -887,19 +935,23 @@
         obstacles: [{ x: 12, y: 4, w: 3, h: 1 },{ x: 0, y: 4, w: 1, h: 8 },{ x: 1, y: 4, w: 1, h:  3},
             { x: 2, y: 5, w: 1, h: 1 },{ x: 1, y: 4, w: 3, h: 1 },{ x: 4, y: 3, w: 2, h: 1 },
             { x: 6, y: 2, w: 5, h: 1 },{ x: 11, y: 3, w: 1, h: 1 },{ x: 4, y: 8, w: 5, h: 1 },{ x: 9, y: 5, w: 2, h: 1 },
-            { x: 11, y: 8, w: 4, h: 3 },{ x: 13, y: 6, w: 3, h: 1 },{ x: 9, y: 3, w: 1, h: 1 }
+            { x: 11, y: 8, w: 4, h: 3 },{ x: 13, y: 6, w: 3, h: 1 },{ x: 9, y: 3, w: 1, h: 1 },{ x: 14, y: 7, w: 2, h: 1 }
          
         ],
         interactables: [
-          { id: 'fountain', x: 11, y: 11, type: 'dialogue', text: '喷泉闪烁着魔法光芒。' },
-          { id: 'magic_plant', x: 7, y: 6, type: 'firstThenCollect', text: '暗影菇与龙鳞…古老配方在记忆中苏醒。', recipeId: 'hidden', materialId: 'shadow_mushroom' },
-          { id: 'dragon_spot', x: 1, y: 7, type: 'firstThenCollect', text: '石缝中嵌着一片龙鳞，泛着微光。', materialId: 'dragon_scale' }
+          { id: 'fountain', x: 12, y: 7, type: 'dialogue', text: '噴泉閃爍著魔法光芒。' },
+          { id: 'fountain', x: 13, y: 7, type: 'dialogue', text: '噴泉閃爍著魔法光芒。' },
+          { id: 'fountain', x: 10, y: 9, type: 'dialogue', text: '噴泉閃爍著魔法光芒。' },
+          { id: 'fountain', x: 10, y: 10, type: 'dialogue', text: '噴泉閃爍著魔法光芒。' },
+          { id: 'magic_plant', x: 15, y: 8, type: 'dialogue', text: '暗影菇與龍鱗⋯⋯古老的回憶漸漸甦醒。', recipeId: 'hidden', giveMaterial: 'shadow_mushroom' },
+          { id: 'dragon_spot', x: 10, y: 6, type: 'dialogue', text: '奇怪的裝置裡放著一片龍鱗，閃著微光。', giveMaterial: 'dragon_scale' }
         ],
         portals: [
           { x: 15, y: 5, to: 'floor1', toSpawn: { x: 8, y: 10 }, needKey: false, label: '返回' }
         ],
         items: [
-          { id: 'moonlight_grass_garden', x: 5, y: 10, materialId: 'moonlight_grass' }
+          { id: 'moonlight_grass_garden', x: 5, y: 10, materialId: 'moonlight_grass' },
+          { id: 'flame_flower_1', x: 4, y: 5, materialId: 'flame_flower' }
         ]
       }
     };
@@ -986,11 +1038,15 @@
           state.pickedItems[key] = true;
           if (item.isKey) {
             state.hasGardenKey = true;
-            showDialogue('获得了花园钥匙！');
+            checkQuestOnItemGet('garden_key');
+            checkQuestCompletion();   
+            showDialogue('<i>獲得了花園鑰匙！</i>');
             checkAchievements();
           } else if (state.inventory.length < state.maxInventory) {
             state.inventory.push(item.materialId);
-            showDialogue('获得：' + (MATERIALS[item.materialId]?.name || item.materialId));
+            checkQuestOnItemGet(item.materialId);
+            checkQuestCompletion();
+            showDialogue('<i>獲得了：' + (MATERIALS[item.materialId]?.name || item.materialId)+'！</i>');
             soundPickup();
             checkAchievements();
           }
@@ -1002,7 +1058,7 @@
       for (const portal of map.portals || []) {
         if (portal.x === px && portal.y === py) {
           if (portal.needKey && !state.hasGardenKey) {
-            showDialogue('需要花园钥匙才能打开这道门！');
+            showDialogue('門被鎖住了，你需要鑰匙。');
             return;
           }
           switchMap(portal.to, portal.toSpawn);
@@ -1041,6 +1097,9 @@
           
           if (i.type === 'dialogue') {
             showDialogue(i.text);
+            if (i.id === 'chest' && state.currentQuest.id === 'open_chest' && !state.currentQuest.completed) {
+              completeQuest();
+            }
             if (i.recipeId && !state.recipesUnlocked.includes(i.recipeId)) {
               state.recipesUnlocked.push(i.recipeId);
               soundPickup();
@@ -1050,11 +1109,13 @@
               if (state.inventory.length < state.maxInventory) {
                 state.inventory.push(i.giveMaterial);
                 state.pickedItems[i.materialId + '_' + i.id] = true;
-                showDialogue('获得了：' + (MATERIALS[i.giveMaterial]?.name || i.giveMaterial));
+                showDialogue('<i>獲得了' + (MATERIALS[i.giveMaterial]?.name || i.giveMaterial)+ '！</i>');
                 soundPickup();
                 checkAchievements();
+                checkQuestCompletion();  
+                checkQuestOnItemGet(i.giveMaterial); 
               } else {
-                showDialogue('背包已满！');
+                showDialogue('背包已滿！');
               }
             }
             return;
@@ -1064,9 +1125,9 @@
             if (!state.recipesUnlocked.includes(i.recipeId)) {
               state.recipesUnlocked.push(i.recipeId);
               soundPickup();
-              showDialogue('你获得了配方：' + (RECIPES.find(r => r.id === i.recipeId)?.name || ''));
+              showDialogue('<i>你獲得了新配方：' + (RECIPES.find(r => r.id === i.recipeId)?.name || '')+'!</i>');
             } else {
-              showDialogue('已经读过这本魔法书了。');
+              showDialogue('你已經讀過這本魔法書了。');
             }
             return;
           }
@@ -1080,14 +1141,14 @@
               state.pickedItems[targetKey] = true;
               if (state.inventory.length < state.maxInventory) {
                 state.inventory.push(targetMaterial);
-                showDialogue(i.text + ' 获得了：' + (MATERIALS[targetMaterial]?.name || targetMaterial));
+                showDialogue(i.text + '<i>获得了：' + (MATERIALS[targetMaterial]?.name || targetMaterial)+'</i>');
                 soundPickup();
                 checkAchievements();
               } else {
-                showDialogue('背包已满！');
+                showDialogue('背包已滿！');
               }
             } else {
-              showDialogue('这里已经没有东西了。');
+              showDialogue('這裡已經沒有東西了。');
             }
             return;
           }
@@ -1097,29 +1158,25 @@
 
     function handleCatInteraction(i) {
       if (state.catRewardGiven) {
-        showDialogue(state.catAsleep ? '猫咪还在打盹。' : '猫咪对你喵了一声。');
+        showDialogue(state.catAsleep ? '貓咪還在打盹' : '貓咪瞥了你一眼。');
       } else if (state.catAsleep) {
         if (state.inventory.length + 2 > state.maxInventory) {
-          showDialogue('背包空间不足，无法收取谢礼。');
+          showDialogue('背包空間不足，無法收取。');
         } else {
           state.inventory.push('moonlight_grass');
           state.inventory.push('flame_flower');
           state.catRewardGiven = true;
           soundPickup();
-          showDialogue('猫咪醒来，留下了月光草和火焰花作为谢礼。');
+          showDialogue('你再一次向貓咪伸出罪惡的手時，它終於是忍不了了。<br>“人，東西拿走。貓，睡覺。摸貓，不可以。”<br>');
           checkAchievements();
         }
       } else if (state.inventory.indexOf('cat_food') !== -1) {
         state.inventory.splice(state.inventory.indexOf('cat_food'), 1);
         state.catAsleep = true;
-        showDialogue('你喂了猫咪，它满足地睡着了。');
+        showDialogue('你用不知道放了多久的貓糧餵了貓，正心虛時，它又睡著了。');
         checkAchievements();
       } else {
-        showDialogue('喵~ 龙鳞与火焰花能炼出力量药水哦！');
-        if (!state.recipesUnlocked.includes('strength')) {
-          state.recipesUnlocked.push('strength');
-          soundPickup();
-        }
+        showDialogue('你伸出手試圖觸碰貓咪的腦袋，卻被扇了一爪。<i>還要繼續嗎？</i>');
       }
     }
 
@@ -1130,15 +1187,15 @@
         state.interactableFirstDone[id] = true;
       } else if (!state.interactableCollected[id]) {
         if (state.inventory.length >= state.maxInventory) {
-          showDialogue('背包已满！');
+          showDialogue('背包已滿');
         } else {
           state.inventory.push(i.giveItem);
           state.interactableCollected[id] = true;
           soundPickup();
-          showDialogue('获得了' + (i.giveLabel || i.giveItem) + '！');
+          showDialogue('<i>獲得了' + (i.giveLabel || i.giveItem) + '！</i>');
         }
       } else {
-        showDialogue('已经没有东西了。');
+        showDialogue('已經沒有東西了。');
       }
     }
 
@@ -1153,12 +1210,12 @@
         state.interactableFirstDone[id] = true;
       } else if (!state.interactableCollected[id]) {
         if (state.inventory.length >= state.maxInventory) {
-          showDialogue('背包已满！');
+          showDialogue('背包已滿！');
         } else {
           state.inventory.push(i.materialId);
           state.interactableCollected[id] = true;
           soundPickup();
-          showDialogue('获得：' + (MATERIALS[i.materialId]?.name || i.materialId));
+          showDialogue('<i>獲得了：' + (MATERIALS[i.materialId]?.name || i.materialId)+ '！</i>');
           checkAchievements();
         }
       }
@@ -1174,6 +1231,8 @@
       state.player.moving = false;
       document.getElementById('mapLabel').textContent = MAPS[toMap].name;
       checkMapExplored();
+      checkQuestOnMapChange();
+      checkQuestCompletion(); 
     }
 
     // ============ UI系统 ============
@@ -1202,14 +1261,14 @@
       if (state.hasGardenKey) {
         html += `<div style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px; background:rgba(0,0,0,0.3); border-radius:8px;">
           <span style="font-size:28px;">🔑</span>
-          <span style="font-size:12px;">花园钥匙</span>
+          <span style="font-size:12px;">一把鑰匙</span>
         </div>`;
       }
       html += '</div>';
       showDialogue(html);
     }
 
-    // ============ 炼药系统 ============
+    // ============ 煉藥系统 ============
     function showBrewUI(isVoluntary) {
       state.phase = 'brew';
       state.brewMode = isVoluntary ? 'preview' : 'final';
@@ -1219,11 +1278,11 @@
       brewUI.innerHTML = `
         <div class="brewHeader">
           <div>
-            <span id="brewTimer">${isVoluntary ? '炼药练习' : '炼药时间: 60 秒'}</span>
+            <span id="brewTimer">${isVoluntary ? '煉藥练习' : '考核時間: 60 秒'}</span>
           </div>
           <div>
             <button id="returnExploreBtn" style="display:${isVoluntary ? 'inline-block' : 'none'};">返回探索</button>
-            <button id="skipBrewTimeBtn" style="display:${isVoluntary ? 'none' : 'inline-block'};">跳过时间</button>
+            <button id="skipBrewTimeBtn" style="display:${isVoluntary ? 'none' : 'inline-block'};">跳過時間</button>
           </div>
         </div>
         <div class="brewContent">
@@ -1232,16 +1291,16 @@
             <div id="brewInventory"></div>
           </div>
           <div class="brewPanel">
-            <h3>🫕 炼药锅</h3>
+            <h3>🫕 煉藥鍋</h3>
             <div id="cauldronSlots"></div>
-            <button id="startBrewBtn">开始炼制</button>
+            <button id="startBrewBtn">開始煉製</button>
             <div class="brewedList">
-              <strong>已炼制药水：</strong>
+              <strong>已煉製藥水：</strong>
               <div id="brewedList"></div>
             </div>
           </div>
           <div class="brewPanel">
-            <h3>📖 配方手册</h3>
+            <h3>📖 配方手冊</h3>
             <div id="recipeBook"></div>
           </div>
         </div>
@@ -1294,7 +1353,7 @@
           <span style="color:#ffd700;">x${count[id]}</span>
         </div>`;
       });
-      inv.innerHTML = html || '<p>暂无材料</p>';
+      inv.innerHTML = html || '<p>暫無材料</p>';
       
       inv.querySelectorAll('.brewMat').forEach(el => {
         el.onclick = () => addToCauldron(el.dataset.id);
@@ -1331,7 +1390,7 @@
           return mat?.img ? `<img src="${mat.img}" style="width:20px; height:20px; image-rendering:pixelated; vertical-align:middle;">` : (mat?.emoji || m);
         }).join(' + ');
         return '<div class="recipeItem"><strong>' + r.name + '</strong><br><span>' + matStr + '</span></div>';
-      }).join('') || '<p>尚未获得配方</p>';
+      }).join('') || '<p>尚未獲得配方</p>';
 
       var brewedEl = document.getElementById('brewedList');
       if (brewedEl) {
@@ -1365,7 +1424,7 @@
       var el = document.getElementById('brewTimer');
       function tick() {
         state.brewTimeLeft--;
-        el.textContent = '炼药时间: ' + state.brewTimeLeft + ' 秒';
+        el.textContent = '煉藥时间: ' + state.brewTimeLeft + ' 秒';
         if (state.brewTimeLeft <= 0) {
           if (state.brewTimerId) clearTimeout(state.brewTimerId);
           state.brewTimerId = null;
@@ -1388,11 +1447,13 @@
         state.brewedPotions.push(r.result);
         checkAchievements();
         soundSuccess();
-        showDialogue('炼制成功！获得：' + r.name);
+        showDialogue('煉製成功！獲得了' + r.name);
         state.cauldron = [];
+        checkQuestOnPotionBrew(r.result);
+        checkQuestCompletion();
       } else {
         soundFail();
-        showDialogue('配方不对，炼制失败…');
+        showDialogue('配方不對，煉製失敗⋯⋯');
         state.cauldron = [];
       }
       renderBrewUI();
@@ -1409,17 +1470,17 @@
       const hidden = potions.includes('hidden');
       let title = '', text = '';
       if (hidden) {
-        title = '🌟 隐藏结局：暗影龙裔';
-        text = '你炼出了传说中的暗影龙息。';
+        title = '🌟 隱藏結局：夢想時刻';
+        text = '“你竟然製作出了這個！”製作者在審核魔藥的時候驚訝的看著眼前的東西，“難不成⋯⋯你就是傳說中的那位⋯⋯”製作者的話戛然而止。“不不不，是我踰矩了，這個教授不該我當，是您來才對。”就這樣，你從一個小小的女巫學徒，搖身一變成為了女巫大學的教授⋯⋯嘴巴濕濕的，啊，睡的口水流出來了。';
       } else if (potions.length >= 3) {
-        title = '🏆 传奇女巫';
-        text = '你成功炼制了多种药水。';
+        title = '🏆 傳奇女巫';
+        text = '你是一個熱愛學習，擁有過人觀察力，心思細膩的女巫。你學會了所有的配方，並在女巫大學以GPA4.3的完美成績畢業，這個榮譽是你應得的！';
       } else if (potions.length >= 1) {
         title = '✨ 普通女巫';
-        text = '你完成了一些炼制。';
+        text = '你是一個普通的女巫，就像很多很多的女巫一樣。你一絲不苟的工作，煉出來的藥都是教科書裡的標準魔藥。每次考試的分布曲線圖，也總是攀上高峰，高高在上地俯視你的同窗們。';
       } else {
-        title = '😢 遗憾结局';
-        text = '没能炼出药水。';
+        title = '🗽 自由人';
+        text = '你深諳不走尋常路的重要性，所以你的行為總是超出常理，成為一個又一個遊戲測試師的惡夢。<br><i>一個測試工程師走進一家酒吧，要了NaN杯Null……</i>';
       }
       const modal = document.getElementById('modal');
       document.getElementById('modalContent').innerHTML =
@@ -1433,42 +1494,163 @@
     function checkAchievements() {
       const a = state.achievements;
       
-      // 材料大师：收集全部5种材料
+      // 材料大師：收集了所有的材料
       const uniqueMaterials = new Set(state.inventory).size;
       if (uniqueMaterials >= 5 && !a.collector) {
         a.collector = true;
-        showAchievement('材料大师', '收集全部5种材料');
+        showAchievement('材料大師', '收集了所有的材料');
       }
       
-      // 炼药师：成功炼制3种药水
+      // 煉藥師：煉製了所有藥水
       if (state.brewedPotions.length >= 3 && !a.brewer) {
         a.brewer = true;
-        showAchievement('炼药师', '成功炼制3种药水');
+        showAchievement('煉藥師', '煉製了所有藥水');
       }
       
-      // 钥匙守护者
+      // 鑰匙守護者
       if (state.hasGardenKey && !a.keymaster) {
         a.keymaster = true;
-        showAchievement('钥匙守护者', '找到花园钥匙');
+        showAchievement('鑰匙守護者', '找到花園鑰匙');
       }
       
-      // 猫咪朋友
+      // 會說話的貓
       if (state.catRewardGiven && !a.catLover) {
         a.catLover = true;
-        showAchievement('猫咪朋友', '喂食猫咪');
+        showAchievement('會說話的貓', '哦⋯⋯這是？');
       }
       
       // 隐藏结局
       if (state.brewedPotions.includes('hidden') && !a.hiddenEnding) {
         a.hiddenEnding = true;
-        showAchievement('暗影之主', '达成隐藏结局');
+        showAchievement('製作的認可', '達成隱藏結局');
       }
       
-      // 传奇女巫：解锁全部成就
+      // 傳奇女巫：解鎖全部成就！感謝遊玩！
       const allUnlocked = Object.values(a).every(v => v === true);
       if (allUnlocked && !a.masterWitch) {
         a.masterWitch = true;
-        showAchievement('传奇女巫', '解锁全部成就', '👑');
+        showAchievement('傳奇女巫', '解鎖全部成就！感謝遊玩！', '👑');
+      }
+    }
+
+        // ============ 任务系统 ============
+    function updateQuestDisplay() {
+      const quest = state.currentQuest;
+      document.getElementById('questName').textContent = quest.name;
+      document.getElementById('questDesc').textContent = quest.description;
+    }
+
+    function checkQuestCompletion() {
+      const quest = state.currentQuest;
+      if (quest.completed) return;
+      
+      // 根据任务类型检查完成条件
+      if (quest.target) {
+        // 检查是否获得目标物品
+        if (quest.target.itemId === 'garden_key' && state.hasGardenKey) {
+          completeQuest();
+        }
+        // 检查是否到达目标地图
+        else if (quest.target.map && state.currentMap === quest.target.map) {
+          completeQuest();
+        }
+        // 检查是否收集到目标材料
+        else if (quest.target.material && state.inventory.includes(quest.target.material)) {
+          completeQuest();
+        }
+      }
+    }
+
+    function completeQuest() {
+      const quest = state.currentQuest;
+      quest.completed = true;
+      state.completedQuests.push(quest.id);
+      
+      showDialogue(`✅ 任務完成：${quest.name}<br>${quest.completionMessage || '繼續你的冒險！'}`);
+      
+      // 设置下一个任务
+      setNextQuest();
+      
+      updateQuestDisplay();
+    }
+
+    function setNextQuest() {
+      // 任务链示例
+      const questChain = {
+        'open_chest': {
+          id: 'find_garden_key',
+          name: '尋找鑰匙',
+          description: '找到鑰匙，打開大門。',
+          target: { itemId: 'garden_key' },
+          completionMessage: '你找到了正確的鑰匙！'
+        },
+        'find_garden_key': {
+          id: 'open_garden_gate',
+          name: '打開大門',
+          description: '使用鑰匙開啟大門。',
+          target: { map: 'garden' },
+          completionMessage: '大門緩緩打開...'
+        },
+        'open_garden_gate': {
+          id: 'collect_dragon_scale',
+          name: '尋找有用的東西',
+          description: '在花園裡找到有用的東西。',
+          target: { material: 'dragon_scale' },
+          completionMessage: '你找到了一片發光的龍鱗！'
+        },
+        'collect_dragon_scale': {
+          id: 'brew_hidden_potion',
+          name: '煉製考核',
+          description: '接下來要做的⋯⋯你看看你手邊的材料，你能用這些做出什麼呢？可以繼續探索城堡，或者跳過時間進入煉藥考核。',
+          target: { potion: 'hidden' },
+          completionMessage: '你煉製出了傳說中的暗影龍息！'
+        }
+      };
+      
+      const next = questChain[state.currentQuest.id];
+      if (next) {
+        state.currentQuest = {
+          ...next,
+          completed: false
+        };
+      } else {
+        // 最终任务
+        state.currentQuest = {
+          id: 'final',
+          name: '完成考核',
+          description: '在時間結束前煉製任意藥水，通過考核。',
+          completed: false
+        };
+      }
+    }
+
+    // 在获得物品时检查任务
+    function checkQuestOnItemGet(itemId) {
+      const quest = state.currentQuest;
+      if (quest.completed) return;
+      
+      if (quest.target && quest.target.itemId === itemId) {
+        completeQuest();
+      }
+    }
+
+    // 在切换地图时检查任务
+    function checkQuestOnMapChange() {
+      const quest = state.currentQuest;
+      if (quest.completed) return;
+      
+      if (quest.target && quest.target.map === state.currentMap) {
+        completeQuest();
+      }
+    }
+
+    // 在炼制药水时检查任务
+    function checkQuestOnPotionBrew(potionId) {
+      const quest = state.currentQuest;
+      if (quest.completed) return;
+      
+      if (quest.target && quest.target.potion === potionId) {
+        completeQuest();
       }
     }
 
@@ -1506,7 +1688,7 @@
             <div class="icon">${ach.icon}</div>
             <div class="name">${ach.name}</div>
             <div class="desc">${ach.desc}</div>
-            <div class="status">${unlocked ? '✓ 已解锁' : '🔒 未解锁'}</div>
+            <div class="status">${unlocked ? '✓ 已解鎖' : '🔒 '}</div>
           </div>
         `;
       }).join('');
@@ -1519,10 +1701,11 @@
       
       if (!state.achievements.starter) {
         state.achievements.starter = true;
-        showAchievement('初出茅庐', '开始第一次冒险', '🌟');
+        showAchievement('初出茅廬', '初次踏上旅途', '🌟');
       }
       
       playGameBGM();
+      updateQuestDisplay();
     }
 
     function showAchievements() {
@@ -1554,10 +1737,15 @@
       state.interactableCollected = {};
       state.catAsleep = false;
       state.catRewardGiven = false;
-      state.achievements = {
-        starter: false, collector: false, brewer: false, explorer: false,
-        keymaster: false, catLover: false, hiddenEnding: false, masterWitch: false
+      state.currentQuest= {
+        id: 'open_chest',           // 改为新任务ID
+        name: '開啟大廳寶箱',        // 新任务名称
+        description: '你作為女巫學徒進入這座城堡參與試煉，落入你眼前的是一個閃閃發光的箱子。你還在等什麼？打開它！',  // 新任务描述
+        target: { itemId: 'chest_key' },  // 假设宝箱需要钥匙，或直接完成
+        completed: false,
+        completionMessage: '你如願以償地打開了寶箱，有一個奇怪的念頭驅使著你：還有呢？鑰匙呢？'
       };
+      state.completedQuests = [];
       state.mapsVisited = ['floor1'];
       
       document.getElementById('startScreen').classList.remove('hidden');
@@ -1576,7 +1764,7 @@
       
       if (mapsVisited.size >= 4 && !state.achievements.explorer) {
         state.achievements.explorer = true;
-        showAchievement('探险家', '探索全部4个地图', '🗺️');
+        showAchievement('探險家', '探索了所有地圖', '🗺️');
       }
     }
 
@@ -1636,13 +1824,13 @@
       //ctx.globalAlpha = 1;
 
       // 绘制传送点
-      map.portals.forEach(p => {
-        ctx.fillStyle = 'rgba(255,215,0,0.3)';
-        ctx.fillRect(p.x * TILE_SIZE, p.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        ctx.font = '12px monospace';
-        ctx.fillStyle = '#ffd700';
-        ctx.fillText(p.label || '🚪', p.x * TILE_SIZE + 4, p.y * TILE_SIZE + 20);
-      });
+      //map.portals.forEach(p => {
+        //ctx.fillStyle = 'rgba(255,215,0,0.3)';
+        //ctx.fillRect(p.x * TILE_SIZE, p.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        //ctx.font = '12px monospace';
+        //ctx.fillStyle = '#ffd700';
+        //ctx.fillText(p.label || '🚪', p.x * TILE_SIZE + 4, p.y * TILE_SIZE + 20);
+      //});
 
       // 绘制互动物
       map.interactables.forEach(i => {
